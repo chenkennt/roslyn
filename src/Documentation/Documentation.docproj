@@ -2,12 +2,11 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <OutputType>Html</OutputType>
-    <DocToolExtensionsPath Condition=" '$(DocToolExtensionsPath)' == '' ">
-    </DocToolExtensionsPath>
-    <AssemblyName>DocProject</AssemblyName>
-    <Name>DocProject</Name>
-    <RootNamespace>DocProject</RootNamespace>
+    <OutputType>Documentation</OutputType>
+    <DocToolExtensionsPath Condition="'$(DocToolExtensionsPath)' == '' ">Targets</DocToolExtensionsPath>
+    <AssemblyName>Documentation</AssemblyName>
+    <Name>Documentation</Name>
+    <RootNamespace>Documentation</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,24 +21,28 @@
     <OutputPath>bin\PublishDoc</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="css" />
-    <Folder Include="Docs\" />
-    <Folder Include="Docs\CodeAnalysis\" />
-    <Folder Include="script" />
-    <Content Include="Docs\CodeAnalysis\AdditionalText.md">
+    <Folder Include="template" />
+    <Folder Include="Targets" />
+    <None Include="Targets/Microsoft.DocProject.targets" />
+    <Content Include="Formatter.md">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="script\default.js">
-    </Content>
-    <Content Include="script\jquery-2.1.0.min.js">
-    </Content>
+    <Content Include="template/class.tmpl" />
+    <Content Include="template/namespace.tmpl" />
+    <Content Include="index.html" />
+    <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Compilers\Core\Portable\CodeAnalysis.csproj">
-      <Name>CodeAnalysis</Name>
+      <Name>CodeAnalysis (Compilers\Core\CodeAnalysis)</Name>
       <Project>{1ee8cad3-55f9-4d91-96b2-084641da9a6c}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\Workspaces\Core\Portable\Workspaces.csproj">
+      <Name>Workspaces (Workspaces\Workspaces)</Name>
+      <Project>{5f8d2414-064a-4b3a-9b42-8e2a04246be5}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
-  <Import Project="$(DocToolExtensionsPath)\Targets\Microsoft.DocProject.targets" />
+  <Import Project="Targets\Microsoft.DocProject.targets" />
 </Project>

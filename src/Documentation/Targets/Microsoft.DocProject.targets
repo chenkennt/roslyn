@@ -1,0 +1,111 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <BuildDocToolPath>$(DocToolExtensionsPath)\BuildMeta.exe</BuildDocToolPath>
+    <PublishDocToolPath Condition=" '$(PublishDocToolPath)' == '' ">$(DocToolExtensionsPath)\PublishDoc.exe</PublishDocToolPath>
+    <ConfigPublishToolPath Condition=" '$(ConfigPublishToolPath)' == '' ">$(DocToolExtensionsPath)\ConfigPublish.exe</ConfigPublishToolPath>
+    <GithubConfigPath Condition=" '$(GithubConfigPath)' == '' ">GithubPublish.config</GithubConfigPath>
+    <MergeDocTemplatePath Condition=" '$(MergeDocTemplatePath)' == '' ">$(DocToolExtensionsPath)\Templates</MergeDocTemplatePath>
+    <TempOutputDirectory>$(OutputPath)\doctemp</TempOutputDirectory>
+  </PropertyGroup>
+  <Target Name="Build">
+    <CallTarget Targets="Validation" />
+
+    <CallTarget Condition=" '$(Configuration)' == 'PublishDoc' " Targets="ConfigGithub" />
+    <CallTarget Targets="GenerateMetadata" />
+    <CallTarget Targets="MergeMetadata" />
+    <CallTarget Targets="IndexMarkdown" />
+    <CallTarget Targets="CopyWebsiteFiles" />
+
+    <CallTarget Condition=" '$(Configuration)' != 'PublishDoc' " Targets="PreviewWebsite" />
+    <CallTarget Condition=" '$(Configuration)' == 'PublishDoc' " Targets="PublishDoc" />
+  </Target>
+  <Target Name="Validation">
+    <Error Condition="'$(DocToolExtensionsPath)' == ''" Text="DocToolExtensionsPath is not set! Please set DocToolExtensionsPath to the executive path of BuildMeta.exe to continue build!" ></Error>
+  </Target>
+  <Target Name ="Clean">
+    <!-- TO BE IMPLEMENTED-->
+  </Target>
+  <Target Name ="ReBuild">
+    <CallTarget Targets="Clean" />
+    <CallTarget Targets="Build" />
+  </Target>
+  <Target Name ="GetFrameworkPaths" />
+
+  <Target Name="CopyWebsiteFiles">
+    <ItemGroup>
+      <!--<WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.html'" />
+      <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.html'" />
+      <WebsiteFiles  Include="@(Compile)" Condition="'%(Extension)' == '.html'" />
+      
+      <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.js'" />
+      <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.js'" />
+      <WebsiteFiles  Include="@(Compile)" Condition="'%(Extension)' == '.js'" />
+      
+      <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.css'" />
+      <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.css'" />
+      <WebsiteFiles  Include="@(Compile)" Condition="'%(Extension)' == '.css'" />-->
+      <WebsiteFiles Include="$(MSBuildProjectDirectory)/**/*.html" />
+      <WebsiteFiles Include="$(MSBuildProjectDirectory)/**/*.tmpl" />
+      <WebsiteFiles Include="$(MSBuildProjectDirectory)/web.config" />
+    </ItemGroup>
+    <!--<Copy SourceFiles="@(WebsiteFiles)"  DestinationFolder="$(OutputPath)" />-->
+    <Copy
+        SourceFiles="@(WebsiteFiles)"
+        DestinationFiles="@(WebsiteFiles->'$(OutputPath)\%(RecursiveDir)%(Filename)%(Extension)')"
+        />
+  </Target>
+
+  <Target Name="CleanupExistingOutput">
+    <ItemGroup>
+      <OutputFiles Include="$(OutputPath)\**\*.*" />
+    </ItemGroup>
+    <!-- Cleanup existing docmta -->
+    <Delete Files="@(OutputFiles)"  ContinueOnError="true" />
+    <RemoveDir Directories="$(OutputPath)" ContinueOnError="true" />
+  </Target>
+
+  <Target Name ="GenerateMetadata">
+    <Message Text ="%(DocMta.FullPath)" />
+    <ItemGroup>
+      <MarkdownFiles  Include="@(None)" Condition="'%(Extension)' == '.md'" />
+      <MarkdownFiles  Include="@(Content)" Condition="'%(Extension)' == '.md'" />
+      <MarkdownFiles  Include="@(Compile)" Condition="'%(Extension)' == '.md'" />
+    </ItemGroup>
+    <CallTarget Targets="CleanupExistingOutput" />
+
+    <Message Text="$(BuildDocToolPath)" />
+    <!-- GenDocMetadata solutionPath [/o:outputDirectory] [/p:delimitedProjectFiles] [/t:outputType] -->
+
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) @(ProjectReference->'&quot;%(FullPath)&quot;', ',') /o:&quot;$(OutputPath)&quot; /m:@(MarkdownFiles->'&quot;%(FullPath)&quot;', ',')" >
+      <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
+      <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
+    </Exec>
+
+    <Warning Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '2'"/>
+    <Error Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '1'"/>
+  </Target>
+
+  <Target Name="MergeMetadata">
+    <CallTarget Targets="IndexMarkdown" />
+  </Target>
+
+  <Target Name="IndexMarkdown">
+
+  </Target>
+
+  <Target Name="PublishDoc">
+    <Exec Command="$(PublishDocToolPath) /githubConfigFile:&quot;$(GithubConfigPath)&quot;" />
+  </Target>
+
+  <Target Name="ConfigGithub">
+    <Exec Command="$(ConfigPublishToolPath) /githubConfigFile:&quot;$(GithubConfigPath)&quot;" />
+  </Target>
+
+  <Target Name="PreviewWebsite">
+    <ItemGroup>
+      <OutputHomepage Include="$(OutputPath)\index.html" />
+    </ItemGroup>
+    <Message Text ="Opening %(OutputHomepage.File)" />
+    <Exec Command="&quot;%(OutputHomepage.FullPath)&quot;" Condition="Exists(%(OutputHomepage.File))" />
+  </Target>
+</Project>
