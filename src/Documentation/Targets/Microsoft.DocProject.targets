@@ -6,6 +6,10 @@
     <GithubConfigPath Condition=" '$(GithubConfigPath)' == '' ">GithubPublish.config</GithubConfigPath>
     <MergeDocTemplatePath Condition=" '$(MergeDocTemplatePath)' == '' ">$(DocToolExtensionsPath)\Templates</MergeDocTemplatePath>
     <TempOutputDirectory>$(OutputPath)\doctemp</TempOutputDirectory>
+    <IntermediateOutputPath Condition=" '$(IntermediateOutputPath)' == '' ">obj/$(Configuration)</IntermediateOutputPath>
+    <IntermediateFilePath>$(IntermediateOutputPath)/obj.list</IntermediateFilePath>
+    <TocFilePath>$(OutputPath)/toc.yaml</TocFilePath>
+    <MarkdownIndexFilePath>$(OutputPath)/md.yaml</MarkdownIndexFilePath>
   </PropertyGroup>
   <Target Name="Build">
     <CallTarget Targets="Validation" />
@@ -23,6 +27,7 @@
     <Error Condition="'$(DocToolExtensionsPath)' == ''" Text="DocToolExtensionsPath is not set! Please set DocToolExtensionsPath to the executive path of BuildMeta.exe to continue build!" ></Error>
   </Target>
   <Target Name ="Clean">
+    <CallTarget Targets="CleanupExistingOutput" />
     <!-- TO BE IMPLEMENTED-->
   </Target>
   <Target Name ="ReBuild">
@@ -65,18 +70,18 @@
   </Target>
 
   <Target Name ="GenerateMetadata">
-    <Message Text ="%(DocMta.FullPath)" />
     <ItemGroup>
-      <MarkdownFiles  Include="@(None)" Condition="'%(Extension)' == '.md'" />
-      <MarkdownFiles  Include="@(Content)" Condition="'%(Extension)' == '.md'" />
-      <MarkdownFiles  Include="@(Compile)" Condition="'%(Extension)' == '.md'" />
+      <IntermediateOutputFiles Include="$(IntermediateOutputPath)\**\*.*" />
     </ItemGroup>
-    <CallTarget Targets="CleanupExistingOutput" />
+    <Message Text="InputProjectFiles: @(InputProjectFiles)" />
+    <CallTarget Targets="_GenerateMetadata" />
+  </Target>
+  <Target Name ="_GenerateMetadata" Outputs="$(IntermediateFilePath)">
+    <Message Text ="%(DocMta.FullPath)" />
 
-    <Message Text="$(BuildDocToolPath)" />
-    <!-- GenDocMetadata solutionPath [/o:outputDirectory] [/p:delimitedProjectFiles] [/t:outputType] -->
-
-    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) @(ProjectReference->'&quot;%(FullPath)&quot;', ',') /o:&quot;$(OutputPath)&quot; /m:@(MarkdownFiles->'&quot;%(FullPath)&quot;', ',')" >
+    <!-- BuildMeta.exe <ProjectFiles> /i:$(IntermediateOutputPath)/obj.list /target:build -->
+    <!-- ProjectFiles => Generate metadata file for each project in $(IntermediateOutputPath) and list the file paths in obj.list -->
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) @(ProjectReference->'&quot;%(FullPath)&quot;', ',') /i：&quot;$(IntermediateFilePath)&quot; /target:build" >
       <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
       <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
     </Exec>
@@ -85,12 +90,47 @@
     <Error Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '1'"/>
   </Target>
 
-  <Target Name="MergeMetadata">
-    <CallTarget Targets="IndexMarkdown" />
+  <Target Name ="MergeMetadata">
+    <ItemGroup>
+      <IntermediateOutputFiles Include="$(IntermediateOutputPath)\**\*.*" />
+      <OutputMetadataFiles Include="$(OutputPath)\**\*.*" />
+    </ItemGroup>
+    <Message Text="IntermediateOutputFiles: @(IntermediateOutputFiles)" />
+    <Message Text="OutputMetadataFiles: @(OutputMetadataFiles)" />
+    <CallTarget Targets="_MergeMetadata" />
   </Target>
 
-  <Target Name="IndexMarkdown">
+  <Target Name ="_MergeMetadata" Outputs="$(TocFilePath)">
+    <!-- BuildMeta.exe /i:$(IntermediateOutputPath)/obj.list /target:build -->
+    <!-- $(IntermediateOutputPath)/obj.list => merge metadata file in $(IntermediateOutputPath) and output the yaml metadata in $(OutputPath) -->
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) /i：&quot;$(IntermediateFilePath)&quot; /o:&quot;$(OutputPath)&quot; /target:merge" >
+      <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
+      <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
+    </Exec>
+    <Warning Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '2'"/>
+    <Error Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '1'"/>
+  </Target>
 
+  <Target Name ="IndexMarkdown">
+    <CallTarget Targets="_IndexMarkdown" />
+  </Target>
+
+  <Target Name="_IndexMarkdown" Outputs="$(MarkdownIndexFilePath)">
+    <ItemGroup>
+      <MarkdownFiles  Include="@(None)" Condition="'%(Extension)' == '.md'" />
+      <MarkdownFiles  Include="@(Content)" Condition="'%(Extension)' == '.md'" />
+      <MarkdownFiles  Include="@(Compile)" Condition="'%(Extension)' == '.md'" />
+    </ItemGroup>
+
+    <!-- BuildMeta.exe /i:$(IntermediateOutputPath)/obj.list /target:build -->
+    <!-- $(OutputPath), @(MarkdownFiles) => Markdown Index File -->
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) /o:&quot;$(OutputPath)&quot; /m:@(MarkdownFiles->'&quot;%(FullPath)&quot;', ',')  /target:markdown" >
+      <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
+      <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
+    </Exec>
+
+    <Warning Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '2'"/>
+    <Error Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '1'"/>
   </Target>
 
   <Target Name="PublishDoc">
