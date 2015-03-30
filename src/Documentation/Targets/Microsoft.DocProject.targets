@@ -8,8 +8,10 @@
     <TempOutputDirectory>$(OutputPath)\doctemp</TempOutputDirectory>
     <IntermediateOutputPath Condition=" '$(IntermediateOutputPath)' == '' ">obj/$(Configuration)</IntermediateOutputPath>
     <IntermediateFilePath>$(IntermediateOutputPath)/obj.list</IntermediateFilePath>
-    <TocFilePath>$(OutputPath)/toc.yaml</TocFilePath>
+    <ApiFolderPath>$(OutputPath)/api/</ApiFolderPath>
+    <TocFilePath>$(ApiFolderPath)/toc.yaml</TocFilePath>
     <MarkdownIndexFilePath>$(OutputPath)/md.yaml</MarkdownIndexFilePath>
+    <PreviewPort Condition=" '$(PreviewPort)' == '' ">8002</PreviewPort>
   </PropertyGroup>
   <Target Name="Build">
     <CallTarget Targets="Validation" />
@@ -38,26 +40,38 @@
 
   <Target Name="CopyWebsiteFiles">
     <ItemGroup>
-      <!--<WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.html'" />
-      <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.html'" />
-      <WebsiteFiles  Include="@(Compile)" Condition="'%(Extension)' == '.html'" />
-      
+      <WebsiteFiles  Include="@(Content)" />
+      <!--
+      <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.html' or '%(Extension)' == '.js' or '%(Extension)' == '.css' or '%(Extension)' == '.tmpl' or '%(Filename)%(Extension)' == 'web.config' or '%(Extension)' == '.md' or '%(Extension)' == '.yaml'" />
+      <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.html' or '%(Extension)' == '.js' or '%(Extension)' == '.css' or '%(Extension)' == '.tmpl' or '%(Filename)%(Extension)' == 'web.config' or '%(Extension)' == '.md' or '%(Extension)' == '.yaml'" />
+      <WebsiteFiles  Include="@(Compile)"  Condition="'%(Extension)' == '.html' or '%(Extension)' == '.js' or '%(Extension)' == '.css' or '%(Extension)' == '.tmpl' or '%(Filename)%(Extension)' == 'web.config' or '%(Extension)' == '.md' or '%(Extension)' == '.yaml'" />
+      -->
+      <!--
       <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.js'" />
       <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.js'" />
       <WebsiteFiles  Include="@(Compile)" Condition="'%(Extension)' == '.js'" />
-      
+
       <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.css'" />
       <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.css'" />
       <WebsiteFiles  Include="@(Compile)" Condition="'%(Extension)' == '.css'" />-->
-      <WebsiteFiles Include="$(MSBuildProjectDirectory)/**/*.html" />
+      <!--   <WebsiteFiles Include="$(MSBuildProjectDirectory)/**/*.html" />
       <WebsiteFiles Include="$(MSBuildProjectDirectory)/**/*.tmpl" />
-      <WebsiteFiles Include="$(MSBuildProjectDirectory)/web.config" />
+      <WebsiteFiles Include="$(MSBuildProjectDirectory)/web.config" /> -->
     </ItemGroup>
     <!--<Copy SourceFiles="@(WebsiteFiles)"  DestinationFolder="$(OutputPath)" />-->
+    <Message Text="Copying @(WebsiteFiles)" />
     <Copy
         SourceFiles="@(WebsiteFiles)"
-        DestinationFiles="@(WebsiteFiles->'$(OutputPath)\%(RecursiveDir)%(Filename)%(Extension)')"
+        DestinationFiles="@(WebsiteFiles->'$(OutputPath)\%(RelativeDir)%(Filename)%(Extension)')"
         />
+  </Target>
+
+  <Target Name="CleanupExistingObj">
+    <ItemGroup>
+      <ObjFiles Include="$(IntermediateOutputPath)\**\*.*" />
+    </ItemGroup>
+    <!-- Cleanup existing docmta -->
+    <Delete Files="@(ObjFiles)"  ContinueOnError="true" />
   </Target>
 
   <Target Name="CleanupExistingOutput">
@@ -73,15 +87,14 @@
     <ItemGroup>
       <IntermediateOutputFiles Include="$(IntermediateOutputPath)\**\*.*" />
     </ItemGroup>
+    <CallTarget Targets="CleanupExistingObj" />
     <Message Text="InputProjectFiles: @(InputProjectFiles)" />
     <CallTarget Targets="_GenerateMetadata" />
   </Target>
   <Target Name ="_GenerateMetadata" Outputs="$(IntermediateFilePath)">
-    <Message Text ="%(DocMta.FullPath)" />
-
     <!-- BuildMeta.exe <ProjectFiles> /i:$(IntermediateOutputPath)/obj.list /target:build -->
     <!-- ProjectFiles => Generate metadata file for each project in $(IntermediateOutputPath) and list the file paths in obj.list -->
-    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) @(ProjectReference->'&quot;%(FullPath)&quot;', ',') /i：&quot;$(IntermediateFilePath)&quot; /target:build" >
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) @(ProjectReference->'&quot;%(FullPath)&quot;', ',') /i:&quot;$(IntermediateFilePath)&quot; /target:build" >
       <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
       <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
     </Exec>
@@ -95,6 +108,7 @@
       <IntermediateOutputFiles Include="$(IntermediateOutputPath)\**\*.*" />
       <OutputMetadataFiles Include="$(OutputPath)\**\*.*" />
     </ItemGroup>
+    <CallTarget Targets="CleanupExistingOutput" />
     <Message Text="IntermediateOutputFiles: @(IntermediateOutputFiles)" />
     <Message Text="OutputMetadataFiles: @(OutputMetadataFiles)" />
     <CallTarget Targets="_MergeMetadata" />
@@ -103,7 +117,7 @@
   <Target Name ="_MergeMetadata" Outputs="$(TocFilePath)">
     <!-- BuildMeta.exe /i:$(IntermediateOutputPath)/obj.list /target:build -->
     <!-- $(IntermediateOutputPath)/obj.list => merge metadata file in $(IntermediateOutputPath) and output the yaml metadata in $(OutputPath) -->
-    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) /i：&quot;$(IntermediateFilePath)&quot; /o:&quot;$(OutputPath)&quot; /target:merge" >
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) /i:&quot;$(IntermediateFilePath)&quot; /o:&quot;$(ApiFolderPath)&quot; /target:merge" >
       <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
       <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
     </Exec>
@@ -112,6 +126,7 @@
   </Target>
 
   <Target Name ="IndexMarkdown">
+    <CallTarget Targets="CleanupExistingMarkdownIndexFile" />
     <CallTarget Targets="_IndexMarkdown" />
   </Target>
 
@@ -124,13 +139,22 @@
 
     <!-- BuildMeta.exe /i:$(IntermediateOutputPath)/obj.list /target:build -->
     <!-- $(OutputPath), @(MarkdownFiles) => Markdown Index File -->
-    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) /o:&quot;$(OutputPath)&quot; /m:@(MarkdownFiles->'&quot;%(FullPath)&quot;', ',')  /target:markdown" >
+    <Exec IgnoreExitCode="true" ConsoleToMSBuild="true" Command="$(BuildDocToolPath) /o:&quot;$(ApiFolderPath)&quot; /m:@(MarkdownFiles->'&quot;%(FullPath)&quot;', ',')  /target:markdown" >
       <Output TaskParameter="ConsoleOutput" PropertyName="OutputConsoleValue" />
       <Output TaskParameter="ExitCode" PropertyName="ExecExitCode" />
     </Exec>
 
     <Warning Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '2'"/>
     <Error Text = "$(OutputConsoleValue)" Condition="$(ExecExitCode) == '1'"/>
+  </Target>
+
+  <Target Name="CleanupExistingMarkdownIndexFile">
+    <ItemGroup>
+      <MarkdownIndexFiles Include="$(MarkdownIndexFilePath)" />
+    </ItemGroup>
+    <!-- Cleanup existing docmta -->
+    <Message Text="Deleting @(MarkdownIndexFiles)" />
+    <Delete Files="@(MarkdownIndexFiles)" ContinueOnError="true" />
   </Target>
 
   <Target Name="PublishDoc">
@@ -143,9 +167,10 @@
 
   <Target Name="PreviewWebsite">
     <ItemGroup>
-      <OutputHomepage Include="$(OutputPath)\index.html" />
+      <OutputHomepage Include="$(OutputPath)" />
     </ItemGroup>
-    <Message Text ="Opening %(OutputHomepage.File)" />
-    <Exec Command="&quot;%(OutputHomepage.FullPath)&quot;" Condition="Exists(%(OutputHomepage.File))" />
+    <Message Text ="Opening %(OutputHomepage.FullPath)" />
+    <Exec Condition="Exists(%(OutputHomepage.FullPath))" Command="&quot;$(ProgramFiles)/IIS Express/iisexpress&quot; /path:&quot;%(OutputHomepage.FullPath)&quot; /port:$(PreviewPort) /systray:false"/>
+    <Exec Condition="Exists(%(OutputHomepage.FullPath))" Command="start http://localhost:$(PreviewPort)"/>
   </Target>
 </Project>

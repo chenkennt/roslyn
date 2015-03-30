@@ -7,6 +7,7 @@
     <AssemblyName>Documentation</AssemblyName>
     <Name>Documentation</Name>
     <RootNamespace>Documentation</RootNamespace>
+    <ProjectGuid>{623c509a-352d-437f-a0e6-29d9e4dd93fa}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,14 +22,150 @@
     <OutputPath>bin\PublishDoc</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="images" />
     <Folder Include="template" />
     <Folder Include="Targets" />
+    <Folder Include="js" />
+    <Folder Include="css" />
+    <Folder Include="api" />
+    <Folder Include="wiki\" />
     <None Include="Targets/Microsoft.DocProject.targets" />
+    <Content Include="favicon.ico" />
     <Content Include="Formatter.md">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="images\alex-api-layers.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\compiler-pipeline-api.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\compiler-pipeline-lang-svc.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\compiler-pipeline.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig1.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig10.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig11.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig12.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig13.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig14.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig15.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig16.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig17.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig18.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig19.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig2.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig20.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig3.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig4.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig5.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig6.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig7.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig8.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\fig9.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="images\workspace-obj-relations.png">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Building-Testing-and-Debugging.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Contributing-Code.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\FAQ.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Getting-Started-on-Visual-Studio-2015-CTP-5.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Getting-Started-on-Visual-Studio-2015-CTP-6.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Getting-Started-on-Visual-Studio-2015-Preview.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Home.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Languages-features-in-CSharp-6-and-VB-14.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Roadmap.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Roslyn-Overview.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Samples-and-Walkthroughs.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Syntax-Visualizer.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\toc.yaml">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\VS-2015-CTP-5-API-Changes.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\VS-2015-CTP-6-API-Changes.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="wiki\Walkthroughs.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="js/docascode.js" />
+    <Content Include="css/docascode.css" />
     <Content Include="template/class.tmpl" />
+    <Content Include="template/error404.tmpl" />
     <Content Include="template/namespace.tmpl" />
+    <Content Include="template/navbar.tmpl" />
+    <Content Include="template/toc.tmpl" />
+    <Content Include="api/NOTE.md" />
+    <Content Include="toc.yaml" />
     <Content Include="index.html" />
     <Content Include="web.config" />
   </ItemGroup>
