@@ -22,7 +22,7 @@
     <OutputPath>bin\PublishDoc</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="images" />
+    <Folder Include="wiki\images" />
     <Folder Include="template" />
     <Folder Include="Targets" />
     <Folder Include="js" />
@@ -34,79 +34,79 @@
     <Content Include="Formatter.md">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\alex-api-layers.png">
+    <Content Include="wiki\images\alex-api-layers.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\compiler-pipeline-api.png">
+    <Content Include="wiki\images\compiler-pipeline-api.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\compiler-pipeline-lang-svc.png">
+    <Content Include="wiki\images\compiler-pipeline-lang-svc.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\compiler-pipeline.png">
+    <Content Include="wiki\images\compiler-pipeline.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig1.png">
+    <Content Include="wiki\images\fig1.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig10.png">
+    <Content Include="wiki\images\fig10.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig11.png">
+    <Content Include="wiki\images\fig11.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig12.png">
+    <Content Include="wiki\images\fig12.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig13.png">
+    <Content Include="wiki\images\fig13.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig14.png">
+    <Content Include="wiki\images\fig14.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig15.png">
+    <Content Include="wiki\images\fig15.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig16.png">
+    <Content Include="wiki\images\fig16.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig17.png">
+    <Content Include="wiki\images\fig17.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig18.png">
+    <Content Include="wiki\images\fig18.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig19.png">
+    <Content Include="wiki\images\fig19.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig2.png">
+    <Content Include="wiki\images\fig2.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig20.png">
+    <Content Include="wiki\images\fig20.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig3.png">
+    <Content Include="wiki\images\fig3.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig4.png">
+    <Content Include="wiki\images\fig4.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig5.png">
+    <Content Include="wiki\images\fig5.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig6.png">
+    <Content Include="wiki\images\fig6.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig7.png">
+    <Content Include="wiki\images\fig7.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig8.png">
+    <Content Include="wiki\images\fig8.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\fig9.png">
+    <Content Include="wiki\images\fig9.png">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="images\workspace-obj-relations.png">
+    <Content Include="wiki\images\workspace-obj-relations.png">
       <SubType>Content</SubType>
     </Content>
     <Content Include="wiki\Building-Testing-and-Debugging.md">
