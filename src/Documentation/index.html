@@ -101,7 +101,7 @@
                 <a ng-href="#{{crumb.url}}">{{crumb.name}}</a>
               </li>
             </ul>
-          </div> 
+          </div>
         </div>
       </section>-->
     </header>
@@ -111,12 +111,12 @@
         <div class="grid-left" ng-if="toc">
           <div class="side-navigation">
             <div id="tocLoading" ng-show="tocLoading">Loading...</div>
-            <div ng-hide="tocLoading" ng-repeat="model in [toc.content]" ng-include="'template/toc.tmpl'"></div>
+            <div ng-hide="tocLoading" ng-if="toc" ng-repeat="model in [toc.content]" ng-include="'template/toc.tmpl'"></div>
           </div>
         </div>
         <div ng-class="gridClass(toc)">
           <div id="loading" ng-show="loading">Loading...</div>
-          <div ng-if="contentType === 'md'" marked processlink ng-hide="loading" ng-repeat="model in [partialModel]" ng-include="partialPath" autoscroll></div>
+          <div ng-if="contentType === 'md'" marked ng-hide="loading" ng-repeat="model in [partialModel]" ng-include="partialPath" autoscroll></div>
           <div ng-if="contentType !== 'md'" ng-hide="loading" ng-repeat="model in [partialModel]" ng-include="partialPath" autoscroll></div>
         </div>
       </div>
