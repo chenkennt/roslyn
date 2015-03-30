@@ -22,7 +22,7 @@
     <CallTarget Targets="IndexMarkdown" />
     <CallTarget Targets="CopyWebsiteFiles" />
 
-    <CallTarget Condition=" '$(Configuration)' != 'PublishDoc' " Targets="PreviewWebsite" />
+    <!--<CallTarget Condition=" '$(Configuration)' != 'PublishDoc' " Targets="PreviewWebsite" />-->
     <CallTarget Condition=" '$(Configuration)' == 'PublishDoc' " Targets="PublishDoc" />
   </Target>
   <Target Name="Validation">
@@ -40,12 +40,7 @@
 
   <Target Name="CopyWebsiteFiles">
     <ItemGroup>
-      <WebsiteFiles  Include="@(Content)" />
-      <!--
-      <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.html' or '%(Extension)' == '.js' or '%(Extension)' == '.css' or '%(Extension)' == '.tmpl' or '%(Filename)%(Extension)' == 'web.config' or '%(Extension)' == '.md' or '%(Extension)' == '.yaml'" />
-      <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.html' or '%(Extension)' == '.js' or '%(Extension)' == '.css' or '%(Extension)' == '.tmpl' or '%(Filename)%(Extension)' == 'web.config' or '%(Extension)' == '.md' or '%(Extension)' == '.yaml'" />
-      <WebsiteFiles  Include="@(Compile)"  Condition="'%(Extension)' == '.html' or '%(Extension)' == '.js' or '%(Extension)' == '.css' or '%(Extension)' == '.tmpl' or '%(Filename)%(Extension)' == 'web.config' or '%(Extension)' == '.md' or '%(Extension)' == '.yaml'" />
-      -->
+      <WebsiteFiles Include="@(Content)" />
       <!--
       <WebsiteFiles  Include="@(None)" Condition="'%(Extension)' == '.js'" />
       <WebsiteFiles  Include="@(Content)" Condition="'%(Extension)' == '.js'" />

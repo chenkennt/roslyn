@@ -7,7 +7,7 @@
     <AssemblyName>Documentation</AssemblyName>
     <Name>Documentation</Name>
     <RootNamespace>Documentation</RootNamespace>
-    <ProjectGuid>{623c509a-352d-437f-a0e6-29d9e4dd93fa}</ProjectGuid>
+    <ProjectGuid>{e94d78a7-6b43-46a3-9045-461dbfd98699}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,15 +22,28 @@
     <OutputPath>bin\PublishDoc</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="wiki\images" />
     <Folder Include="template" />
     <Folder Include="Targets" />
     <Folder Include="js" />
     <Folder Include="css" />
+    <Folder Include="articles" />
     <Folder Include="api" />
-    <Folder Include="wiki\" />
+    <Folder Include="wiki" />
+    <Folder Include="wiki\images\" />
     <None Include="Targets/Microsoft.DocProject.targets" />
-    <Content Include="favicon.ico" />
+    <None Include="favicon.ico" />
+    <Content Include="js/docascode.js" />
+    <Content Include="css/docascode.css" />
+    <Content Include="template/class.tmpl" />
+    <Content Include="template/error404.tmpl" />
+    <Content Include="template/namespace.tmpl" />
+    <Content Include="template/navbar.tmpl" />
+    <Content Include="template/toc.tmpl" />
+    <Content Include="template/tocpage.tmpl" />
+    <Content Include="api/NOTE.md" />
+    <Content Include="toc.yaml" />
+    <Content Include="index.html" />
+    <Content Include="web.config" />
     <Content Include="Formatter.md">
       <SubType>Content</SubType>
     </Content>
@@ -157,17 +170,6 @@
     <Content Include="wiki\Walkthroughs.md">
       <SubType>Content</SubType>
     </Content>
-    <Content Include="js/docascode.js" />
-    <Content Include="css/docascode.css" />
-    <Content Include="template/class.tmpl" />
-    <Content Include="template/error404.tmpl" />
-    <Content Include="template/namespace.tmpl" />
-    <Content Include="template/navbar.tmpl" />
-    <Content Include="template/toc.tmpl" />
-    <Content Include="api/NOTE.md" />
-    <Content Include="toc.yaml" />
-    <Content Include="index.html" />
-    <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Workspaces\Core\Portable\Workspaces.csproj">
