@@ -31,6 +31,12 @@
     <Folder Include="wiki\images" />
     <None Include="Targets/Microsoft.DocProject.targets" />
     <None Include="favicon.ico" />
+    <Content Include="Formatter.md">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Home.md">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="js/docascode.js" />
     <Content Include="css/docascode.css" />
     <Content Include="template/class.tmpl" />
