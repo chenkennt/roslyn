@@ -7,11 +7,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.ExpressionEvaluator;
 using Microsoft.VisualStudio.Debugger.Evaluation.ClrCompilation;
-using Microsoft.VisualStudio.SymReaderInterop;
 using Roslyn.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -43,20 +43,18 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 
         /// <summary>
         /// Create a context to compile expressions within a method scope.
-        /// Include imports if <paramref name="importStringGroups"/> is set.
         /// </summary>
         internal CompilationContext(
             CSharpCompilation compilation,
             MetadataDecoder metadataDecoder,
             MethodSymbol currentFrame,
             ImmutableArray<LocalSymbol> locals,
-            ImmutableSortedSet<int> inScopeHoistedLocalIndices,
-            ImmutableArray<ImmutableArray<string>> importStringGroups,
-            ImmutableArray<string> externAliasStrings,
+            InScopeHoistedLocals inScopeHoistedLocals,
+            MethodDebugInfo methodDebugInfo,
             CSharpSyntaxNode syntax)
         {
+            Debug.Assert(string.IsNullOrEmpty(methodDebugInfo.DefaultNamespaceName));
             Debug.Assert((syntax == null) || (syntax is ExpressionSyntax) || (syntax is LocalDeclarationStatementSyntax));
-            Debug.Assert(importStringGroups.IsDefault == externAliasStrings.IsDefault);
 
             // TODO: syntax.SyntaxTree should probably be added to the compilation,
             // but it isn't rooted by a CompilationUnitSyntax so it doesn't work (yet).
@@ -68,7 +66,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             // CONSIDER: The values should be the same everywhere in the module, so they
             // could be cached.  
             // (Catch: what happens in a type context without a method def?)
-            this.Compilation = GetCompilationWithExternAliases(compilation, externAliasStrings);
+            this.Compilation = GetCompilationWithExternAliases(compilation, methodDebugInfo.ExternAliasRecords);
             _metadataDecoder = metadataDecoder;
 
             // Each expression compile should use a unique compilation
@@ -78,8 +76,9 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 
             this.NamespaceBinder = CreateBinderChain(
                 this.Compilation,
+                (PEModuleSymbol)currentFrame.ContainingModule,
                 currentFrame.ContainingNamespace,
-                importStringGroups,
+                methodDebugInfo.ImportRecordGroups,
                 _metadataDecoder);
 
             if (_methodNotType)
@@ -89,7 +88,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                 GetDisplayClassVariables(
                     currentFrame,
                     _locals,
-                    inScopeHoistedLocalIndices,
+                    inScopeHoistedLocals,
                     out displayClassVariableNamesInOrder,
                     out _displayClassVariables,
                     out _hoistedParameterNames);
@@ -255,6 +254,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
         /// the set of arguments and locals at the current scope.
         /// </summary>
         internal CommonPEModuleBuilder CompileGetLocals(
+            ReadOnlyCollection<Alias> aliases,
             string typeName,
             ArrayBuilder<LocalAndMethod> localBuilder,
             bool argumentsOnly,
@@ -295,13 +295,26 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 
                     if (!argumentsOnly)
                     {
+                        // Pseudo-variables: $exception, $ReturnValue, etc.
+                        if (aliases.Count > 0)
+                        {
+                            var typeNameDecoder = new EETypeNameDecoder(this.Compilation, _metadataDecoder.ModuleSymbol);
+                            foreach (var alias in aliases)
+                            {
+                                var methodName = GetNextMethodName(methodBuilder);
+                                var method = this.GetPseudoVariableMethod(typeNameDecoder, container, methodName, alias);
+                                localBuilder.Add(new CSharpLocalAndMethod(alias.FullName, method, alias.GetLocalResultFlags()));
+                                methodBuilder.Add(method);
+                            }
+                        }
+
                         // "this" for non-static methods that are not display class methods or
                         // display class methods where the display class contains "<>4__this".
                         if (!m.IsStatic && (!IsDisplayClassType(m.ContainingType) || _displayClassVariables.ContainsKey(GeneratedNames.ThisProxyFieldName())))
                         {
                             var methodName = GetNextMethodName(methodBuilder);
                             var method = this.GetThisMethod(container, methodName);
-                            localBuilder.Add(new LocalAndMethod("this", methodName, DkmClrCompilationResultFlags.None)); // Note: writable in dev11.
+                            localBuilder.Add(new CSharpLocalAndMethod("this", method, DkmClrCompilationResultFlags.None)); // Note: writable in dev11.
                             methodBuilder.Add(method);
                         }
                     }
@@ -310,7 +323,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                     if (!_hoistedParameterNames.IsEmpty)
                     {
                         int localIndex = 0;
-                        foreach(var local in _localsForBinding)
+                        foreach (var local in _localsForBinding)
                         {
                             // Since we are showing hoisted method parameters first, the parameters may appear out of order
                             // in the Locals window if only some of the parameters are hoisted.  This is consistent with the
@@ -359,7 +372,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                             var methodName = GetNextMethodName(methodBuilder);
                             var returnType = typeVariablesType.Construct(allTypeParameters.Cast<TypeParameterSymbol, TypeSymbol>());
                             var method = this.GetTypeVariablesMethod(container, methodName, returnType);
-                            localBuilder.Add(new LocalAndMethod(ExpressionCompilerConstants.TypeVariablesLocalName, methodName, DkmClrCompilationResultFlags.ReadOnlyResult));
+                            localBuilder.Add(new CSharpLocalAndMethod(ExpressionCompilerConstants.TypeVariablesLocalName, method, DkmClrCompilationResultFlags.ReadOnlyResult));
                             methodBuilder.Add(method);
                         }
                     }
@@ -405,7 +418,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             name = SyntaxHelpers.EscapeKeywordIdentifiers(name);
             var methodName = GetNextMethodName(methodBuilder);
             var method = getMethod(container, methodName, name, localOrParameterIndex);
-            localBuilder.Add(new LocalAndMethod(name, methodName, resultFlags));
+            localBuilder.Add(new CSharpLocalAndMethod(name, method, resultFlags));
             methodBuilder.Add(method);
         }
 
@@ -441,13 +454,28 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                 generateMethodBody);
         }
 
+        private EEMethodSymbol GetPseudoVariableMethod(
+            TypeNameDecoder<PEModuleSymbol, TypeSymbol> typeNameDecoder,
+            EENamedTypeSymbol container,
+            string methodName,
+            Alias alias)
+        {
+            var syntax = SyntaxFactory.IdentifierName(SyntaxFactory.MissingToken(SyntaxKind.IdentifierToken));
+            return this.CreateMethod(container, methodName, syntax, (method, diagnostics) =>
+            {
+                var local = PlaceholderLocalBinder.CreatePlaceholderLocal(typeNameDecoder, method, alias);
+                var expression = new BoundLocal(syntax, local, constantValueOpt: null, type: local.Type);
+                return new BoundReturnStatement(syntax, expression) { WasCompilerGenerated = true };
+            });
+        }
+
         private EEMethodSymbol GetLocalMethod(EENamedTypeSymbol container, string methodName, string localName, int localIndex)
         {
             var syntax = SyntaxFactory.IdentifierName(localName);
             return this.CreateMethod(container, methodName, syntax, (method, diagnostics) =>
             {
                 var local = method.LocalsForBinding[localIndex];
-                var expression = new BoundLocal(syntax, local, constantValueOpt: local.GetConstantValue(null, null, diagnostics), type: local.Type) { WasCompilerGenerated = true };
+                var expression = new BoundLocal(syntax, local, constantValueOpt: local.GetConstantValue(null, null, diagnostics), type: local.Type);
                 return new BoundReturnStatement(syntax, expression) { WasCompilerGenerated = true };
             });
         }
@@ -458,7 +486,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             return this.CreateMethod(container, methodName, syntax, (method, diagnostics) =>
             {
                 var parameter = method.Parameters[parameterIndex];
-                var expression = new BoundParameter(syntax, parameter) { WasCompilerGenerated = true };
+                var expression = new BoundParameter(syntax, parameter);
                 return new BoundReturnStatement(syntax, expression) { WasCompilerGenerated = true };
             });
         }
@@ -468,18 +496,18 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             var syntax = SyntaxFactory.ThisExpression();
             return this.CreateMethod(container, methodName, syntax, (method, diagnostics) =>
             {
-                var expression = new BoundThisReference(syntax, GetNonDisplayClassContainer(container.SubstitutedSourceType)) { WasCompilerGenerated = true };
+                var expression = new BoundThisReference(syntax, GetNonDisplayClassContainer(container.SubstitutedSourceType));
                 return new BoundReturnStatement(syntax, expression) { WasCompilerGenerated = true };
             });
         }
 
         private EEMethodSymbol GetTypeVariablesMethod(EENamedTypeSymbol container, string methodName, NamedTypeSymbol typeVariablesType)
         {
-            var syntax = SyntaxFactory.IdentifierName("");
+            var syntax = SyntaxFactory.IdentifierName(SyntaxFactory.MissingToken(SyntaxKind.IdentifierToken));
             return this.CreateMethod(container, methodName, syntax, (method, diagnostics) =>
             {
                 var type = method.TypeMap.SubstituteNamedType(typeVariablesType);
-                var expression = new BoundObjectCreationExpression(syntax, type.InstanceConstructors[0]) { WasCompilerGenerated = true };
+                var expression = new BoundObjectCreationExpression(syntax, type.InstanceConstructors[0]);
                 var statement = new BoundReturnStatement(syntax, expression) { WasCompilerGenerated = true };
                 return statement;
             });
@@ -572,8 +600,9 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 
         private static Binder CreateBinderChain(
             CSharpCompilation compilation,
+            PEModuleSymbol module,
             NamespaceSymbol @namespace,
-            ImmutableArray<ImmutableArray<string>> importStringGroups,
+            ImmutableArray<ImmutableArray<ImportRecord>> importRecordGroups,
             MetadataDecoder metadataDecoder)
         {
             var stack = ArrayBuilder<string>.GetInstance();
@@ -585,13 +614,13 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 
             var binder = (new BuckStopsHereBinder(compilation)).WithAdditionalFlags(
                 BinderFlags.SuppressObsoleteChecks |
-                BinderFlags.SuppressAccessChecks |
+                BinderFlags.IgnoreAccessibility |
                 BinderFlags.UnsafeRegion |
                 BinderFlags.UncheckedRegion |
                 BinderFlags.AllowManagedAddressOf |
                 BinderFlags.AllowAwaitInUnsafeContext);
-            var hasImports = !importStringGroups.IsDefault;
-            var numImportStringGroups = hasImports ? importStringGroups.Length : 0;
+            var hasImports = !importRecordGroups.IsDefaultOrEmpty;
+            var numImportStringGroups = hasImports ? importRecordGroups.Length : 0;
             var currentStringGroup = numImportStringGroups - 1;
 
             // PERF: We used to call compilation.GetCompilationNamespace on every iteration,
@@ -609,7 +638,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                     // the current frame method, because we want the merged namespace.
                     @namespace = @namespace.GetNestedNamespace(namespaceName);
                     Debug.Assert((object)@namespace != null,
-                        "We worked backwards from symbols to names, but no symbol exists for name '" + namespaceName + "'");
+                        $"We worked backwards from symbols to names, but no symbol exists for name '{namespaceName}'");
                 }
                 else
                 {
@@ -621,12 +650,12 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                 {
                     if (currentStringGroup < 0)
                     {
-                        Debug.WriteLine("No import string group for namespace '{0}'", @namespace);
+                        Debug.WriteLine($"No import string group for namespace '{@namespace}'");
                         break;
                     }
 
                     var importsBinder = new InContainerBinder(@namespace, binder);
-                    imports = BuildImports(compilation, importStringGroups[currentStringGroup], importsBinder, metadataDecoder);
+                    imports = BuildImports(compilation, module, importRecordGroups[currentStringGroup], importsBinder, metadataDecoder);
                     currentStringGroup--;
                 }
 
@@ -639,74 +668,40 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             {
                 // CONSIDER: We could lump these into the outermost namespace.  It's probably not worthwhile since
                 // the usings are already for the wrong method.
-                Debug.WriteLine("Found {0} import string groups without corresponding namespaces", currentStringGroup + 1);
+                Debug.WriteLine($"Found {currentStringGroup + 1} import string groups without corresponding namespaces");
             }
 
             return binder;
         }
 
-        private static CSharpCompilation GetCompilationWithExternAliases(CSharpCompilation compilation, ImmutableArray<string> externAliasStrings)
+        private static CSharpCompilation GetCompilationWithExternAliases(CSharpCompilation compilation, ImmutableArray<ExternAliasRecord> externAliasRecords)
         {
-            if (externAliasStrings.IsDefaultOrEmpty)
+            if (externAliasRecords.IsDefaultOrEmpty)
             {
                 return compilation.Clone();
             }
 
             var updatedReferences = ArrayBuilder<MetadataReference>.GetInstance();
-            var assemblyIdentities = ArrayBuilder<AssemblyIdentity>.GetInstance();
+            var assembliesAndModulesBuilder = ArrayBuilder<Symbol>.GetInstance();
             foreach (var reference in compilation.References)
             {
-                var identity = reference.Properties.Kind == MetadataImageKind.Assembly
-                    ? ((AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)).Identity
-                    : null;
-                assemblyIdentities.Add(identity);
                 updatedReferences.Add(reference);
+                assembliesAndModulesBuilder.Add(compilation.GetAssemblyOrModuleSymbol(reference));
             }
-            Debug.Assert(assemblyIdentities.Count == updatedReferences.Count);
+            Debug.Assert(assembliesAndModulesBuilder.Count == updatedReferences.Count);
 
-            var comparer = compilation.Options.AssemblyIdentityComparer;
-            var numAssemblies = assemblyIdentities.Count;
+            var assembliesAndModules = assembliesAndModulesBuilder.ToImmutableAndFree();
 
-            foreach (var externAliasString in externAliasStrings)
+            foreach (var externAliasRecord in externAliasRecords)
             {
-                string alias;
-                string externAlias;
-                string target;
-                ImportTargetKind kind;
-                if (!CustomDebugInfoReader.TryParseCSharpImportString(externAliasString, out alias, out externAlias, out target, out kind))
-                {
-                    Debug.WriteLine("Unable to parse extern alias '{0}'", (object)externAliasString);
-                    continue;
-                }
-
-                Debug.Assert(kind == ImportTargetKind.Assembly, "Programmer error: How did a non-assembly get in the extern alias list?");
-                Debug.Assert(alias == null); // Not used.
-                Debug.Assert(externAlias != null); // Name of the extern alias.
-                Debug.Assert(target != null); // Name of the target assembly.
-
-                AssemblyIdentity targetIdentity;
-                if (!AssemblyIdentity.TryParseDisplayName(target, out targetIdentity))
-                {
-                    Debug.WriteLine("Unable to parse target of extern alias '{0}'", (object)externAliasString);
-                    continue;
-                }
-
-                int index = -1;
-                for (int i = 0; i < numAssemblies; i++)
-                {
-                    var candidateIdentity = assemblyIdentities[i];
-                    if (candidateIdentity != null && comparer.ReferenceMatchesDefinition(targetIdentity, candidateIdentity))
-                    {
-                        index = i;
-                        break;
-                    }
-                }
-
+                int index = externAliasRecord.GetIndexOfTargetAssembly(assembliesAndModules, compilation.Options.AssemblyIdentityComparer);
                 if (index < 0)
                 {
-                    Debug.WriteLine("Unable to find corresponding assembly reference for extern alias '{0}'", (object)externAliasString);
+                    Debug.WriteLine($"Unable to find corresponding assembly reference for extern alias '{externAliasRecord}'");
                     continue;
                 }
+
+                var externAlias = externAliasRecord.Alias;
 
                 var assemblyReference = updatedReferences[index];
                 var oldAliases = assemblyReference.Properties.Aliases;
@@ -730,7 +725,6 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
 
             compilation = compilation.WithReferences(updatedReferences);
 
-            assemblyIdentities.Free();
             updatedReferences.Free();
 
             return compilation;
@@ -789,41 +783,28 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             return binder;
         }
 
-        private static Imports BuildImports(CSharpCompilation compilation, ImmutableArray<string> importStrings, InContainerBinder binder, MetadataDecoder metadataDecoder)
+        private static Imports BuildImports(CSharpCompilation compilation, PEModuleSymbol module, ImmutableArray<ImportRecord> importRecords, InContainerBinder binder, MetadataDecoder metadataDecoder)
         {
             // We make a first pass to extract all of the extern aliases because other imports may depend on them.
             var externsBuilder = ArrayBuilder<AliasAndExternAliasDirective>.GetInstance();
-            foreach (var importString in importStrings)
+            foreach (var importRecord in importRecords)
             {
-                string alias;
-                string externAlias;
-                string target;
-                ImportTargetKind kind;
-                if (!CustomDebugInfoReader.TryParseCSharpImportString(importString, out alias, out externAlias, out target, out kind))
-                {
-                    Debug.WriteLine("Unable to parse import string '{0}'", (object)importString);
-                    continue;
-                }
-                else if (kind != ImportTargetKind.Assembly)
+                if (importRecord.TargetKind != ImportTargetKind.Assembly)
                 {
                     continue;
                 }
 
-                Debug.Assert(alias == null);
-                Debug.Assert(externAlias != null);
-                Debug.Assert(target == null);
-
-                NameSyntax aliasNameSyntax;
-                if (!SyntaxHelpers.TryParseDottedName(externAlias, out aliasNameSyntax) || aliasNameSyntax.Kind() != SyntaxKind.IdentifierName)
+                var alias = importRecord.Alias;
+                IdentifierNameSyntax aliasNameSyntax;
+                if (!TryParseIdentifierNameSyntax(alias, out aliasNameSyntax))
                 {
-                    Debug.WriteLine("Import string '{0}' has syntactically invalid extern alias '{1}'", importString, externAlias);
+                    Debug.WriteLine($"Import record '{importRecord}' has syntactically invalid extern alias '{alias}'");
                     continue;
                 }
 
-                var aliasToken = ((IdentifierNameSyntax)aliasNameSyntax).Identifier;
-                var externAliasSyntax = SyntaxFactory.ExternAliasDirective(aliasToken);
+                var externAliasSyntax = SyntaxFactory.ExternAliasDirective(aliasNameSyntax.Identifier);
                 var aliasSymbol = new AliasSymbol(binder, externAliasSyntax); // Binder is only used to access compilation.
-                externsBuilder.Add(new AliasAndExternAliasDirective(aliasSymbol, externAliasSyntax));
+                externsBuilder.Add(new AliasAndExternAliasDirective(aliasSymbol, externAliasDirective: null)); // We have one, but we pass null for consistency.
             }
 
             var externs = externsBuilder.ToImmutableAndFree();
@@ -842,41 +823,32 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             var usingAliases = new Dictionary<string, AliasAndUsingDirective>();
             var usingsBuilder = ArrayBuilder<NamespaceOrTypeAndUsingDirective>.GetInstance();
 
-            foreach (var importString in importStrings)
+            foreach (var importRecord in importRecords)
             {
-                string alias;
-                string externAlias;
-                string target;
-                ImportTargetKind kind;
-                if (!CustomDebugInfoReader.TryParseCSharpImportString(importString, out alias, out externAlias, out target, out kind))
-                {
-                    Debug.WriteLine("Unable to parse import string '{0}'", (object)importString);
-                    continue;
-                }
-
-                switch (kind)
+                switch (importRecord.TargetKind)
                 {
                     case ImportTargetKind.Type:
                         {
-                            Debug.Assert(target != null, string.Format("Type import string '{0}' has no target", importString));
-                            Debug.Assert(externAlias == null, string.Format("Type import string '{0}' has an extern alias (should be folded into target)", importString));
+                            var portableImportRecord = importRecord as PortableImportRecord;
 
-                            TypeSymbol typeSymbol = metadataDecoder.GetTypeSymbolForSerializedType(target);
+                            TypeSymbol typeSymbol = portableImportRecord != null
+                                    ? portableImportRecord.GetTargetType(metadataDecoder)
+                                    : metadataDecoder.GetTypeSymbolForSerializedType(importRecord.TargetString);
                             Debug.Assert((object)typeSymbol != null);
+
                             if (typeSymbol.IsErrorType())
                             {
                                 // Type is unrecognized. The import may have been
                                 // valid in the original source but unnecessary.
                                 continue; // Don't add anything for this import.
                             }
-                            else if (alias == null && !typeSymbol.IsStatic)
+                            else if (importRecord.Alias == null && !typeSymbol.IsStatic)
                             {
                                 // Only static types can be directly imported.
                                 continue;
                             }
 
-                            NameSyntax typeSyntax = SyntaxFactory.ParseName(typeSymbol.ToDisplayString(s_fullNameFormat));
-                            if (!TryAddImport(alias, typeSyntax, typeSymbol, usingsBuilder, usingAliases, binder, importString))
+                            if (!TryAddImport(importRecord.Alias, typeSymbol, usingsBuilder, usingAliases, binder, importRecord))
                             {
                                 continue;
                             }
@@ -885,34 +857,66 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                         }
                     case ImportTargetKind.Namespace:
                         {
-                            Debug.Assert(target != null, string.Format("Namespace import string '{0}' has no target", importString));
-
+                            var namespaceName = importRecord.TargetString;
                             NameSyntax targetSyntax;
-                            if (!SyntaxHelpers.TryParseDottedName(target, out targetSyntax))
+                            if (!SyntaxHelpers.TryParseDottedName(namespaceName, out targetSyntax))
                             {
                                 // DevDiv #999086: Some previous version of VS apparently generated type aliases as "UA{alias} T{alias-qualified type name}". 
                                 // Neither Roslyn nor Dev12 parses such imports.  However, Roslyn discards them, rather than interpreting them as "UA{alias}"
                                 // (which will rarely work and never be correct).
-                                Debug.WriteLine("Import string '{0}' has syntactically invalid target '{1}'", importString, target);
+                                Debug.WriteLine($"Import record '{importRecord}' has syntactically invalid target '{importRecord.TargetString}'");
                                 continue;
                             }
 
-                            if (externAlias != null)
+                            NamespaceSymbol namespaceSymbol;
+                            var portableImportRecord = importRecord as PortableImportRecord;
+                            if (portableImportRecord != null)
                             {
-                                IdentifierNameSyntax externAliasSyntax;
-                                if (!TryParseIdentifierNameSyntax(externAlias, out externAliasSyntax))
+                                var targetAssembly = portableImportRecord.GetTargetAssembly<ModuleSymbol, AssemblySymbol>(module, module.Module);
+                                if ((object)targetAssembly == null)
                                 {
-                                    Debug.WriteLine("Import string '{0}' has syntactically invalid extern alias '{1}'", importString, externAlias);
+                                    namespaceSymbol = BindNamespace(namespaceName, compilation.GlobalNamespace);
+                                }
+                                else if (targetAssembly.IsMissing)
+                                {
+                                    Debug.WriteLine($"Import record '{importRecord}' has invalid assembly reference '{targetAssembly.Identity}'");
                                     continue;
                                 }
+                                else
+                                {
+                                    namespaceSymbol = BindNamespace(namespaceName, targetAssembly.GlobalNamespace);
+                                }
+                            }
+                            else
+                            {
+                                var globalNamespace = compilation.GlobalNamespace;
 
-                                // This is the case that requires the binder to already know about extern aliases.
-                                targetSyntax = SyntaxHelpers.PrependExternAlias(externAliasSyntax, targetSyntax);
+                                var externAlias = ((NativeImportRecord)importRecord).ExternAlias;
+                                if (externAlias != null)
+                                {
+                                    IdentifierNameSyntax externAliasSyntax = null;
+                                    if (!TryParseIdentifierNameSyntax(externAlias, out externAliasSyntax))
+                                    {
+                                        Debug.WriteLine($"Import record '{importRecord}' has syntactically invalid extern alias '{externAlias}'");
+                                        continue;
+                                    }
+
+                                    var unusedDiagnostics = DiagnosticBag.GetInstance();
+                                    var aliasSymbol = (AliasSymbol)binder.BindNamespaceAliasSymbol(externAliasSyntax, unusedDiagnostics);
+                                    unusedDiagnostics.Free();
+
+                                    if ((object)aliasSymbol == null)
+                                    {
+                                        Debug.WriteLine($"Import record '{importRecord}' requires unknown extern alias '{externAlias}'");
+                                        continue;
+                                    }
+
+                                    globalNamespace = (NamespaceSymbol)aliasSymbol.Target;
+                                }
+
+                                namespaceSymbol = BindNamespace(namespaceName, globalNamespace);
                             }
 
-                            var unusedDiagnostics = DiagnosticBag.GetInstance();
-                            var namespaceSymbol = binder.BindNamespaceOrType(targetSyntax, unusedDiagnostics).ExpressionSymbol as NamespaceSymbol;
-                            unusedDiagnostics.Free();
                             if ((object)namespaceSymbol == null)
                             {
                                 // Namespace is unrecognized. The import may have been
@@ -920,7 +924,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                                 continue; // Don't add anything for this import.
                             }
 
-                            if (!TryAddImport(alias, targetSyntax, namespaceSymbol, usingsBuilder, usingAliases, binder, importString))
+                            if (!TryAddImport(importRecord.Alias, namespaceSymbol, usingsBuilder, usingAliases, binder, importRecord))
                             {
                                 continue;
                             }
@@ -934,7 +938,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                         }
                     default:
                         {
-                            throw ExceptionUtilities.UnexpectedValue(kind);
+                            throw ExceptionUtilities.UnexpectedValue(importRecord.TargetKind);
                         }
                 }
             }
@@ -942,32 +946,47 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             return Imports.FromCustomDebugInfo(binder.Compilation, usingAliases, usingsBuilder.ToImmutableAndFree(), externs);
         }
 
+        private static NamespaceSymbol BindNamespace(string namespaceName, NamespaceSymbol globalNamespace)
+        {
+            var namespaceSymbol = globalNamespace;
+            foreach (var name in namespaceName.Split('.'))
+            {
+                var members = namespaceSymbol.GetMembers(name);
+                namespaceSymbol = members.Length == 1
+                        ? members[0] as NamespaceSymbol
+                        : null;
+
+                if ((object)namespaceSymbol == null)
+                {
+                    break;
+                }
+            }
+            return namespaceSymbol;
+        }
+
         private static bool TryAddImport(
             string alias,
-            NameSyntax targetSyntax,
             NamespaceOrTypeSymbol targetSymbol,
             ArrayBuilder<NamespaceOrTypeAndUsingDirective> usingsBuilder,
             Dictionary<string, AliasAndUsingDirective> usingAliases,
             InContainerBinder binder,
-            string importString)
+            ImportRecord importRecord)
         {
             if (alias == null)
             {
-                var usingSyntax = SyntaxFactory.UsingDirective(targetSyntax);
-                usingsBuilder.Add(new NamespaceOrTypeAndUsingDirective(targetSymbol, usingSyntax));
+                usingsBuilder.Add(new NamespaceOrTypeAndUsingDirective(targetSymbol, usingDirective: null));
             }
             else
             {
                 IdentifierNameSyntax aliasSyntax;
                 if (!TryParseIdentifierNameSyntax(alias, out aliasSyntax))
                 {
-                    Debug.WriteLine("Import string '{0}' has syntactically invalid alias '{1}'", importString, alias);
+                    Debug.WriteLine($"Import record '{importRecord}' has syntactically invalid alias '{alias}'");
                     return false;
                 }
 
-                var usingSyntax = SyntaxFactory.UsingDirective(SyntaxFactory.NameEquals(aliasSyntax), targetSyntax);
                 var aliasSymbol = AliasSymbol.CreateCustomDebugInfoAlias(targetSymbol, aliasSyntax.Identifier, binder);
-                usingAliases.Add(alias, new AliasAndUsingDirective(aliasSymbol, usingSyntax));
+                usingAliases.Add(alias, new AliasAndUsingDirective(aliasSymbol, usingDirective: null));
             }
 
             return true;
@@ -1063,7 +1082,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
         private static void GetDisplayClassVariables(
             MethodSymbol method,
             ImmutableArray<LocalSymbol> locals,
-            ImmutableSortedSet<int> inScopeHoistedLocalIndices,
+            InScopeHoistedLocals inScopeHoistedLocals,
             out ImmutableArray<string> displayClassVariableNamesInOrder,
             out ImmutableDictionary<string, DisplayClassVariable> displayClassVariables,
             out ImmutableHashSet<string> hoistedParameterNames)
@@ -1143,7 +1162,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                         displayClassVariableNamesInOrderBuilder,
                         displayClassVariablesBuilder,
                         parameterNames,
-                        inScopeHoistedLocalIndices,
+                        inScopeHoistedLocals,
                         instance,
                         pooledHoistedParameterNames);
                 }
@@ -1230,7 +1249,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
             ArrayBuilder<string> displayClassVariableNamesInOrderBuilder,
             Dictionary<string, DisplayClassVariable> displayClassVariablesBuilder,
             HashSet<string> parameterNames,
-            ImmutableSortedSet<int> inScopeHoistedLocalIndices,
+            InScopeHoistedLocals inScopeHoistedLocals,
             DisplayClassInstanceAndFields instance,
             HashSet<string> hoistedParameterNames)
         {
@@ -1262,8 +1281,7 @@ namespace Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator
                         // Filter out hoisted locals that are known to be out-of-scope at the current IL offset.
                         // Hoisted locals with invalid indices will be included since more information is better
                         // than less in error scenarios.
-                        int slotIndex;
-                        if (GeneratedNames.TryParseSlotIndex(fieldName, out slotIndex) && !inScopeHoistedLocalIndices.Contains(slotIndex))
+                        if (!inScopeHoistedLocals.IsInScope(fieldName))
                         {
                             continue;
                         }

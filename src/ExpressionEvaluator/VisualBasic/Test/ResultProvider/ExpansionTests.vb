@@ -1,4 +1,6 @@
-﻿Imports System.Collections.Immutable
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports System.Collections.Immutable
 Imports System.Runtime.InteropServices
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.Test.Utilities
@@ -90,7 +92,7 @@ End Class"
                 EvalResult("F", "1", "Object {Integer}", "(New C()).s1.F"))
         End Sub
 
-        <Fact(Skip := "Issue #321")>
+        <Fact(Skip:="Issue #321")>
         Public Sub Pointers()
             Dim source =
 ".class private auto ansi beforefieldinit C
@@ -278,10 +280,19 @@ End Class
 
             ' This Char is not printable, so we expect the EditableValue to be the "ChrW" representation.
             quotedChar = "ChrW(&H7)"
-            value = CreateDkmClrValue(ChrW(&H0007), GetType(Char), inspectionContext:=CreateDkmInspectionContext(radix:=16))
-            result = FormatResult("c", value)
+            value = CreateDkmClrValue(ChrW(&H0007))
+            result = FormatResult("c", value, inspectionContext:=CreateDkmInspectionContext(radix:=16))
             Verify(result,
                 EvalResult("c", quotedChar, "Char", "c", editableValue:=quotedChar))
+        End Sub
+
+        <Fact>
+        Public Sub UnicodeString()
+            Const quotedString = """" & ChrW(&H1234) & """ & ChrW(7)"
+            Dim value = CreateDkmClrValue(New String({ChrW(&H1234), ChrW(&H0007)}))
+            Dim result = FormatResult("s", value)
+            Verify(result,
+                EvalResult("s", quotedString, "String", "s", editableValue:=quotedString, flags:=DkmEvaluationResultFlags.RawString))
         End Sub
 
         <Fact, WorkItem(1002381)>

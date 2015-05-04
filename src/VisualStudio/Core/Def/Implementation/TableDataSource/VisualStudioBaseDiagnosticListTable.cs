@@ -7,9 +7,9 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Editor.Implementation.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.LanguageServices.Implementation.Utilities;
@@ -26,11 +26,12 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
     {
         private static readonly string[] s_columns = new string[]
         {
-            ShimTableColumnDefinitions.ErrorSeverity,
-            ShimTableColumnDefinitions.ErrorCode,
+            StandardTableColumnDefinitions.ErrorSeverity,
+            StandardTableColumnDefinitions.ErrorCode,
             StandardTableColumnDefinitions.Text,
-            ShimTableColumnDefinitions.ErrorCategory,
-            ShimTableColumnDefinitions.ProjectName,
+            StandardTableColumnDefinitions.ErrorCategory,
+            StandardTableColumnDefinitions.ErrorSource,
+            StandardTableColumnDefinitions.ProjectName,
             StandardTableColumnDefinitions.DocumentName,
             StandardTableColumnDefinitions.Line,
             StandardTableColumnDefinitions.Column,
@@ -73,7 +74,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
             }
         }
 
-        private class TableDataSource : AbstractTableDataSource<DiagnosticsUpdatedArgs, DiagnosticData>
+        private class TableDataSource : AbstractRoslynTableDataSource<DiagnosticsUpdatedArgs, DiagnosticData>
         {
             private readonly Guid _identifier;
             private readonly IDiagnosticService _diagnosticService;
@@ -94,6 +95,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
 
                 _diagnosticService = diagnosticService;
                 _diagnosticService.DiagnosticsUpdated += OnDiagnosticsUpdated;
+
+                ConnectToSolutionCrawlerService(_workspace);
             }
 
             public override void OnProjectDependencyChanged(Solution solution)
@@ -146,13 +149,20 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                     return;
                 }
 
-                if (e.Diagnostics.Length == 0 || !e.Diagnostics.Any(ShouldInclude))
+                if (e.Diagnostics.Length == 0)
                 {
                     OnDataRemoved(e.Id);
                     return;
                 }
 
-                OnDataAddedOrChanged(e.Id, e);
+                var count = e.Diagnostics.Where(ShouldInclude).Count();
+                if (count <= 0)
+                {
+                    OnDataRemoved(e.Id);
+                    return;
+                }
+
+                OnDataAddedOrChanged(e.Id, e, count);
             }
 
             private static bool ShouldInclude(DiagnosticData diagnostic)
@@ -172,14 +182,17 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                 private readonly ProjectId _projectId;
                 private readonly DocumentId _documentId;
                 private readonly object _id;
+                private readonly string _errorSource;
 
-                public TableEntriesFactory(TableDataSource source, Workspace workspace, ProjectId projectId, DocumentId documentId, object id)
+                public TableEntriesFactory(TableDataSource source, Workspace workspace, ProjectId projectId, DocumentId documentId, object id) :
+                    base(source)
                 {
                     _source = source;
                     _workspace = workspace;
                     _projectId = projectId;
                     _documentId = documentId;
                     _id = id;
+                    _errorSource = (id as ErrorSourceId)?.ErrorSource ?? string.Empty;
                 }
 
                 protected override ImmutableArray<DiagnosticData> GetItems()
@@ -214,7 +227,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                 private int GetProjectRank(ProjectId projectId)
                 {
                     var rank = 0;
-                    if (_source._projectRanks.TryGetValue(projectId, out rank))
+                    if (projectId != null && _source._projectRanks.TryGetValue(projectId, out rank))
                     {
                         return rank;
                     }
@@ -225,15 +238,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                 private class TableEntriesSnapshot : AbstractTableEntriesSnapshot<DiagnosticData>, IWpfTableEntriesSnapshot
                 {
                     private readonly TableEntriesFactory _factory;
+
+                    // TODO: remove this once we get new drop
                     private readonly int _projectRank;
 
                     private FrameworkElement[] _descriptions;
-                    private FrameworkElement[] _errorCodes;
 
                     public TableEntriesSnapshot(
                         TableEntriesFactory factory, int version,
                         int projectRank, ImmutableArray<DiagnosticData> items, ImmutableArray<ITrackingPoint> trackingPoints) :
-                        base(version, items, trackingPoints)
+                        base(version, GetProjectGuid(factory._workspace, factory._projectId), items, trackingPoints)
                     {
                         _projectRank = projectRank;
                         _factory = factory;
@@ -260,21 +274,30 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
 
                         switch (columnName)
                         {
-                            case ShimTableKeyNames.ProjectRank:
+                            case StandardTableKeyNames.ProjectRank:
                                 content = _projectRank;
                                 return true;
-                            case ShimTableKeyNames.ErrorSeverity:
+                            case StandardTableKeyNames.ErrorRank:
+                                content = GetErrorRank(item);
+                                return true;
+                            case StandardTableKeyNames.ErrorSeverity:
                                 content = GetErrorCategory(item.Severity);
                                 return true;
-                            case ShimTableKeyNames.ErrorCode:
+                            case StandardTableKeyNames.ErrorCode:
                                 content = item.Id;
                                 return true;
+                            case StandardTableKeyNames.ErrorCodeToolTip:
+                                content = GetHelpLinkToolTipText(item);
+                                return content != null;
                             case StandardTableKeyNames.HelpLink:
                                 content = GetHelpLink(item);
                                 return content != null;
-                            case ShimTableKeyNames.ErrorCategory:
+                            case StandardTableKeyNames.ErrorCategory:
                                 content = item.Category;
                                 return true;
+                            case StandardTableKeyNames.ErrorSource:
+                                content = _factory._errorSource;
+                                return content != null;
                             case StandardTableKeyNames.Text:
                                 content = item.Message;
                                 return true;
@@ -287,15 +310,49 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                             case StandardTableKeyNames.Column:
                                 content = item.MappedStartColumn;
                                 return true;
-                            case ShimTableKeyNames.ProjectName:
+                            case StandardTableKeyNames.ProjectName:
                                 content = GetProjectName(_factory._workspace, _factory._projectId);
                                 return content != null;
-                            case ShimTableKeyNames.Project:
+                            case ProjectGuidKey:
+                                content = ProjectGuid;
+                                return ProjectGuid != Guid.Empty;
+                            case StandardTableKeyNames.Project:
+                                // TODO: remove this once we move to new drop
                                 content = GetHierarchy(_factory._workspace, _factory._projectId);
                                 return content != null;
                             default:
                                 content = null;
                                 return false;
+                        }
+                    }
+
+                    private ErrorRank GetErrorRank(DiagnosticData item)
+                    {
+                        string value;
+                        if (!item.Properties.TryGetValue(WellKnownDiagnosticPropertyNames.Origin, out value))
+                        {
+                            return ErrorRank.Other;
+                        }
+
+                        switch (value)
+                        {
+                            case WellKnownDiagnosticTags.Build:
+                                // any error from build is highest priority
+                                return ErrorRank.Lexical;
+                            case nameof(ErrorRank.Lexical):
+                                return ErrorRank.Lexical;
+                            case nameof(ErrorRank.Syntactic):
+                                return ErrorRank.Syntactic;
+                            case nameof(ErrorRank.Declaration):
+                                return ErrorRank.Declaration;
+                            case nameof(ErrorRank.Semantic):
+                                return ErrorRank.Semantic;
+                            case nameof(ErrorRank.Emit):
+                                return ErrorRank.Emit;
+                            case nameof(ErrorRank.PostBuild):
+                                return ErrorRank.PostBuild;
+                            default:
+                                return ErrorRank.Other;
                         }
                     }
 
@@ -406,7 +463,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                         };
                     }
 
-                    private string GetHelpLink(DiagnosticData item)
+                    private static string GetHelpLink(DiagnosticData item)
                     {
                         Uri link;
                         if (BrowserHelper.TryGetUri(item.HelpLink, out link))
@@ -416,65 +473,30 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
 
                         if (!string.IsNullOrWhiteSpace(item.Id))
                         {
-                            // TODO: once we link descriptor with diagnostic, get en-us message for Uri creation
-                            return BrowserHelper.CreateBingQueryUri(item.Id, item.MessageFormat).AbsoluteUri;
+                            return BrowserHelper.CreateBingQueryUri(item.Id, item.ENUMessageForBingSearch).AbsoluteUri;
                         }
 
                         return null;
                     }
 
-                    public bool TryCreateColumnContent(int index, string columnName, bool singleColumnView, out FrameworkElement content)
+                    private static string GetHelpLinkToolTipText(DiagnosticData item)
                     {
-                        content = default(FrameworkElement);
-                        if (columnName != ShimTableColumnDefinitions.ErrorCode)
+                        var isBing = false;
+                        Uri helpUri = null;
+                        if (!BrowserHelper.TryGetUri(item.HelpLink, out helpUri) && !string.IsNullOrWhiteSpace(item.Id))
                         {
-                            return false;
+                            helpUri = BrowserHelper.CreateBingQueryUri(item.Id, item.ENUMessageForBingSearch);
+                            isBing = true;
                         }
 
-                        var item = GetItem(index);
-                        if (item == null)
+                        // We make sure not to use Uri.AbsoluteUri for the url displayed in the tooltip so that the url dislayed in the tooltip stays human readable.
+                        if (helpUri != null)
                         {
-                            return false;
+                            return string.Format(ServicesVSResources.DiagnosticIdHyperlinkTooltipText, item.Id,
+                                isBing ? ServicesVSResources.FromBing : null, Environment.NewLine, helpUri);
                         }
 
-                        Uri unused;
-                        if (BrowserHelper.TryGetUri(item.HelpLink, out unused))
-                        {
-                            content = GetOrCreateTextBlock(ref _errorCodes, this.Count, index, item, i => GetHyperLinkTextBlock(i, new Uri(i.HelpLink, UriKind.Absolute), bingLink: false));
-                            return true;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(item.Id))
-                        {
-                            // TODO: once we link descriptor with diagnostic, get en-us message for Uri creation
-                            content = GetOrCreateTextBlock(ref _errorCodes, this.Count, index, item, i => GetHyperLinkTextBlock(i, BrowserHelper.CreateBingQueryUri(item.Id, item.MessageFormat), bingLink: true));
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    private FrameworkElement GetHyperLinkTextBlock(DiagnosticData item, Uri uri, bool bingLink)
-                    {
-                        // currently, we can't do pooling since there is no event saying when this got out of view.
-                        var content = new TextBlock()
-                        {
-                            Background = null,
-                            ToolTip = item.Id,
-                        };
-
-                        var hyperlink = new Hyperlink();
-
-                        hyperlink.Inlines.Add(item.Id);
-                        hyperlink.NavigateUri = uri;
-                        content.Inlines.Add(hyperlink);
-
-                        // hyperlink will go away as soon as it goes out of view or updated.
-                        hyperlink.Tag = item;
-
-                        // use small event handler singleton object so that leaking ui doesnt make snapshot to leak.
-                        UriNavigator.AttachRequestNaviateEventHandler(hyperlink, _factory._source._serviceProvider);
-                        return content;
+                        return null;
                     }
 
                     private static FrameworkElement GetOrCreateTextBlock(
@@ -494,6 +516,12 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.TableDataSource
                     }
 
                     // unused ones                    
+                    public bool TryCreateColumnContent(int index, string columnName, bool singleColumnView, out FrameworkElement content)
+                    {
+                        content = default(FrameworkElement);
+                        return false;
+                    }
+
                     public bool TryCreateImageContent(int index, string columnName, bool singleColumnView, out ImageMoniker content)
                     {
                         content = default(ImageMoniker);

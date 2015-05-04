@@ -13,6 +13,8 @@ using System.Linq;
 using System.Reflection.Metadata;
 using Xunit;
 using Resources = Microsoft.CodeAnalysis.ExpressionEvaluator.UnitTests.Resources;
+using Roslyn.Test.PdbUtilities;
+using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.CSharp.UnitTests
 {
@@ -282,7 +284,7 @@ class C
   // Code size       55 (0x37)
   .maxstack  2
   IL_0000:  ldstr      ""s""
-  IL_0005:  call       ""object <>x.<>GetObjectByAlias(string)""
+  IL_0005:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(string)""
   IL_000a:  castclass  ""Windows.Storage.StorageFolder""
   IL_000f:  callvirt   ""Windows.Storage.FileAttributes Windows.Storage.StorageFolder.Attributes.get""
   IL_0014:  box        ""Windows.Storage.FileAttributes""
@@ -290,7 +292,7 @@ class C
   IL_001a:  brtrue.s   IL_0036
   IL_001c:  pop
   IL_001d:  ldstr      ""d""
-  IL_0022:  call       ""object <>x.<>GetObjectByAlias(string)""
+  IL_0022:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(string)""
   IL_0027:  unbox.any  ""Windows.Foundation.DateTime""
   IL_002c:  ldfld      ""long Windows.Foundation.DateTime.UniversalTime""
   IL_0031:  box        ""long""
@@ -334,7 +336,7 @@ class C
   // Code size       55 (0x37)
   .maxstack  2
   IL_0000:  ldstr      ""s""
-  IL_0005:  call       ""object <>x.<>GetObjectByAlias(string)""
+  IL_0005:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(string)""
   IL_000a:  castclass  ""Windows.Storage.StorageFolder""
   IL_000f:  callvirt   ""Windows.Storage.FileAttributes Windows.Storage.StorageFolder.Attributes.get""
   IL_0014:  box        ""Windows.Storage.FileAttributes""
@@ -342,11 +344,53 @@ class C
   IL_001a:  brtrue.s   IL_0036
   IL_001c:  pop
   IL_001d:  ldstr      ""d""
-  IL_0022:  call       ""object <>x.<>GetObjectByAlias(string)""
+  IL_0022:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(string)""
   IL_0027:  unbox.any  ""Windows.Foundation.DateTime""
   IL_002c:  ldfld      ""long Windows.Foundation.DateTime.UniversalTime""
   IL_0031:  box        ""long""
   IL_0036:  ret
+}");
+        }
+
+        [WorkItem(1154988)]
+        [ConditionalFact(typeof(OSVersionWin8))]
+        public void WinMdAssemblyReferenceRequiresRedirect()
+        {
+            var source =
+@"class C : Windows.UI.Xaml.Controls.UserControl
+{
+    static void M(C c)
+    {
+    }
+}";
+            var runtime = CreateRuntime(source,
+                ImmutableArray.Create(WinRtRefs),
+                ImmutableArray.Create(MscorlibRef).Concat(ExpressionCompilerTestHelpers.GetRuntimeWinMds("Windows.UI", "Windows.UI.Xaml")));  
+            string errorMessage;
+            var testData = new CompilationTestData();
+            ExpressionCompilerTestHelpers.CompileExpressionWithRetry(
+                runtime.Modules.SelectAsArray(m => m.MetadataBlock),
+                "c.Dispatcher",
+                (metadataBlocks, _) =>
+                {
+                    return CreateMethodContext(runtime, "C.M");
+                },
+                (AssemblyIdentity assembly, out uint size) =>
+                {
+                    // Compilation should succeed without retry if we redirect assembly refs correctly.
+                    // Throwing so that we don't loop forever (as we did before fix)...
+                    throw ExceptionUtilities.Unreachable;
+                },
+                out errorMessage,
+                out testData);
+            Assert.Null(errorMessage);
+            testData.GetMethodData("<>x.<>m0").VerifyIL(
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  IL_0000:  ldarg.0
+  IL_0001:  callvirt   ""Windows.UI.Core.CoreDispatcher Windows.UI.Xaml.DependencyObject.Dispatcher.get""
+  IL_0006:  ret
 }");
         }
 
@@ -366,7 +410,7 @@ class C
             compilation0.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
             return CreateRuntimeInstance(
                 ExpressionCompilerUtilities.GenerateUniqueName(),
-                runtimeReferences,
+                runtimeReferences.AddIntrinsicAssembly(),
                 exeBytes,
                 new SymReader(pdbBytes));
         }

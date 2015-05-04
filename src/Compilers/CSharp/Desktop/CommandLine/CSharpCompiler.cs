@@ -19,35 +19,18 @@ namespace Microsoft.CodeAnalysis.CSharp
     {
         internal const string ResponseFileName = "csc.rsp";
 
-        private readonly string _responseFile;
         private CommandLineDiagnosticFormatter _diagnosticFormatter;
 
-        protected CSharpCompiler(CSharpCommandLineParser parser, string responseFile, string[] args, string baseDirectory, string additionalReferencePaths, string tempPath)
-            : base(parser, responseFile, args, baseDirectory, additionalReferencePaths, tempPath)
+        protected CSharpCompiler(CSharpCommandLineParser parser, string responseFile, string[] args, string clientDirectory, string baseDirectory, string sdkDirectory, string additionalReferenceDirectories, IAnalyzerAssemblyLoader analyzerLoader)
+            : base(parser, responseFile, args, clientDirectory, baseDirectory, sdkDirectory, additionalReferenceDirectories, analyzerLoader)
         {
-            Debug.Assert(responseFile == null || Path.IsPathRooted(responseFile));
-            _responseFile = responseFile;
             _diagnosticFormatter = new CommandLineDiagnosticFormatter(baseDirectory, Arguments.PrintFullPaths, Arguments.ShouldIncludeErrorEndLocation);
         }
 
         public override DiagnosticFormatter DiagnosticFormatter { get { return _diagnosticFormatter; } }
         protected internal new CSharpCommandLineArguments Arguments { get { return (CSharpCommandLineArguments)base.Arguments; } }
 
-        public override int Run(TextWriter consoleOutput, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            try
-            {
-                return base.Run(consoleOutput, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                DiagnosticInfo diag = new DiagnosticInfo(MessageProvider, (int)ErrorCode.ERR_CompileCancelled);
-                PrintErrors(new[] { diag }, consoleOutput);
-                return 1;
-            }
-        }
-
-        protected override Compilation CreateCompilation(TextWriter consoleOutput, TouchedFileLogger touchedFilesLogger)
+        public override Compilation CreateCompilation(TextWriter consoleOutput, TouchedFileLogger touchedFilesLogger, ErrorLogger errorLogger)
         {
             var parseOptions = Arguments.ParseOptions;
             var scriptParseOptions = parseOptions.WithKind(SourceCodeKind.Script);
@@ -63,7 +46,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 Parallel.For(0, sourceFiles.Length, UICultureUtilities.WithCurrentUICulture<int>(i =>
                 {
                     //NOTE: order of trees is important!!
-                    trees[i] = ParseFile(consoleOutput, parseOptions, scriptParseOptions, ref hadErrors, sourceFiles[i], out normalizedFilePaths[i]);
+                    trees[i] = ParseFile(consoleOutput, parseOptions, scriptParseOptions, ref hadErrors, sourceFiles[i], errorLogger, out normalizedFilePaths[i]);
                 }));
             }
             else
@@ -71,7 +54,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 for (int i = 0; i < sourceFiles.Length; i++)
                 {
                     //NOTE: order of trees is important!!
-                    trees[i] = ParseFile(consoleOutput, parseOptions, scriptParseOptions, ref hadErrors, sourceFiles[i], out normalizedFilePaths[i]);
+                    trees[i] = ParseFile(consoleOutput, parseOptions, scriptParseOptions, ref hadErrors, sourceFiles[i], errorLogger, out normalizedFilePaths[i]);
                 }
             }
 
@@ -137,7 +120,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             var externalReferenceResolver = GetExternalMetadataResolver(touchedFilesLogger);
             MetadataFileReferenceResolver referenceDirectiveResolver;
             var resolvedReferences = ResolveMetadataReferences(externalReferenceResolver, metadataProvider, diagnostics, assemblyIdentityComparer, touchedFilesLogger, out referenceDirectiveResolver);
-            if (PrintErrors(diagnostics, consoleOutput))
+            if (ReportErrors(diagnostics, consoleOutput, errorLogger))
             {
                 return null;
             }
@@ -164,6 +147,7 @@ namespace Microsoft.CodeAnalysis.CSharp
             CSharpParseOptions scriptParseOptions,
             ref bool hadErrors,
             CommandLineSourceFile file,
+            ErrorLogger errorLogger,
             out string normalizedFilePath)
         {
             var fileReadDiagnostics = new List<DiagnosticInfo>();
@@ -171,7 +155,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             if (content == null)
             {
-                PrintErrors(fileReadDiagnostics, consoleOutput);
+                ReportErrors(fileReadDiagnostics, consoleOutput, errorLogger);
                 fileReadDiagnostics.Clear();
                 hadErrors = true;
                 return null;
@@ -261,19 +245,23 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// Print compiler logo
         /// </summary>
         /// <param name="consoleOutput"></param>
-        protected override void PrintLogo(TextWriter consoleOutput)
+        public override void PrintLogo(TextWriter consoleOutput)
         {
-            Assembly thisAssembly = GetType().Assembly;
-            consoleOutput.WriteLine(ErrorFacts.GetMessage(MessageID.IDS_LogoLine1, Culture), FileVersionInfo.GetVersionInfo(thisAssembly.Location).FileVersion);
+            consoleOutput.WriteLine(ErrorFacts.GetMessage(MessageID.IDS_LogoLine1, Culture), GetToolName(), GetAssemblyFileVersion());
             consoleOutput.WriteLine(ErrorFacts.GetMessage(MessageID.IDS_LogoLine2, Culture));
             consoleOutput.WriteLine();
+        }
+
+        internal override string GetToolName()
+        {
+            return ErrorFacts.GetMessage(MessageID.IDS_ToolName, Culture);
         }
 
         /// <summary>
         /// Print Commandline help message (up to 80 English characters per line)
         /// </summary>
         /// <param name="consoleOutput"></param>
-        protected override void PrintHelp(TextWriter consoleOutput)
+        public override void PrintHelp(TextWriter consoleOutput)
         {
             consoleOutput.WriteLine(ErrorFacts.GetMessage(MessageID.IDS_CSCHelp, Culture));
         }
@@ -285,7 +273,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         protected override ImmutableArray<DiagnosticAnalyzer> ResolveAnalyzersFromArguments(List<DiagnosticInfo> diagnostics, CommonMessageProvider messageProvider, TouchedFileLogger touchedFiles)
         {
-            return Arguments.ResolveAnalyzersFromArguments(LanguageNames.CSharp, diagnostics, messageProvider, touchedFiles);
+            return Arguments.ResolveAnalyzersFromArguments(LanguageNames.CSharp, diagnostics, messageProvider, touchedFiles, AnalyzerLoader);
         }
     }
 }

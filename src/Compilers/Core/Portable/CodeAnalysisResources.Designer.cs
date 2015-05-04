@@ -260,11 +260,21 @@ namespace Microsoft.CodeAnalysis {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The Compiler Analyzer &apos;{0}&apos; threw an exception with message &apos;{1}&apos;..
+        ///   Looks up a localized string similar to The Compiler Analyzer &apos;{0}&apos; threw an exception of type &apos;{1}&apos; with message &apos;{2}&apos;..
         /// </summary>
         internal static string CompilerAnalyzerThrows {
             get {
                 return ResourceManager.GetString("CompilerAnalyzerThrows", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Analyzer &apos;{0}&apos; threw the following exception:
+        ///&apos;{1}&apos;..
+        /// </summary>
+        internal static string CompilerAnalyzerThrowsDescription {
+            get {
+                return ResourceManager.GetString("CompilerAnalyzerThrowsDescription", resourceCulture);
             }
         }
         
@@ -494,6 +504,15 @@ namespace Microsoft.CodeAnalysis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid data at offset {0}: {1}{2}*{3}{4}.
+        /// </summary>
+        internal static string InvalidDataAtOffset {
+            get {
+                return ResourceManager.GetString("InvalidDataAtOffset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid hash..
         /// </summary>
         internal static string InvalidHash {
@@ -526,6 +545,24 @@ namespace Microsoft.CodeAnalysis {
         internal static string InvalidOutputKindForSubmission {
             get {
                 return ResourceManager.GetString("InvalidOutputKindForSubmission", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid public key..
+        /// </summary>
+        internal static string InvalidPublicKey {
+            get {
+                return ResourceManager.GetString("InvalidPublicKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid public key token..
+        /// </summary>
+        internal static string InvalidPublicKeyToken {
+            get {
+                return ResourceManager.GetString("InvalidPublicKeyToken", resourceCulture);
             }
         }
         
@@ -782,15 +819,6 @@ namespace Microsoft.CodeAnalysis {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The file does not conform to the rule set schema - {0}.
-        /// </summary>
-        internal static string RuleSetSchemaViolation {
-            get {
-                return ResourceManager.GetString("RuleSetSchemaViolation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to error.
         /// </summary>
         internal static string SeverityError {
@@ -890,6 +918,15 @@ namespace Microsoft.CodeAnalysis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SymWriter doesn&apos;t support deterministic compilation.
+        /// </summary>
+        internal static string SymWriterNotDeterministic {
+            get {
+                return ResourceManager.GetString("SymWriterNotDeterministic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to type must be a subclass of SyntaxAnnotation..
         /// </summary>
         internal static string TypeMustBeASubclassOfSyntaxAnnotation {
@@ -935,6 +972,15 @@ namespace Microsoft.CodeAnalysis {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reported diagnostic with ID &apos;{0}&apos; is not supported by the analyzer..
+        /// </summary>
+        internal static string UnsupportedDiagnosticReported {
+            get {
+                return ResourceManager.GetString("UnsupportedDiagnosticReported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported hash algorithm..
         /// </summary>
         internal static string UnsupportedHashAlgorithm {
@@ -967,24 +1013,6 @@ namespace Microsoft.CodeAnalysis {
         internal static string XmlReferencesNotSupported {
             get {
                 return ResourceManager.GetString("XmlReferencesNotSupported", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Invalid public key..
-        /// </summary>
-        internal static string InvalidPublicKey {
-            get {
-                return ResourceManager.GetString("InvalidPublicKey", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Invalid public key token..
-        /// </summary>
-        internal static string InvalidPublicKeyToken {
-            get {
-                return ResourceManager.GetString("InvalidPublicKeyToken", resourceCulture);
             }
         }
     }

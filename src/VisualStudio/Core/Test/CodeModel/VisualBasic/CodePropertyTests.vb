@@ -297,6 +297,45 @@ End Class
 
 #End Region
 
+#Region "Attributes"
+
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub Attributes_AutoProperty()
+            Dim code =
+<Code>
+Imports System
+
+Class C1
+    &lt;CLSCompliant(False)&gt;
+    Public Property $$P As String
+End Class
+</Code>
+
+            TestAttributes(code, IsElement("CLSCompliant"))
+        End Sub
+
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub Attributes_Property()
+            Dim code =
+<Code>
+Imports System
+
+Class C1
+    &lt;CLSCompliant(False)&gt;
+    Public Property $$P As String
+        Get
+        End Get
+        Set(value As String)
+        End Set
+    End Property
+End Class
+</Code>
+
+            TestAttributes(code, IsElement("CLSCompliant"))
+        End Sub
+
+#End Region
+
 #Region "Getter tests"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
@@ -710,6 +749,30 @@ End Class
             TestReadWrite(code, EnvDTE80.vsCMPropertyKind.vsCMPropertyKindReadWrite)
         End Sub
 
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub ReadWrite5()
+            Dim code =
+<Code>
+Class C
+    Public ReadOnly Property $$P As Integer
+End Class
+</Code>
+
+            TestReadWrite(code, EnvDTE80.vsCMPropertyKind.vsCMPropertyKindReadOnly)
+        End Sub
+
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub ReadWrite6()
+            Dim code =
+<Code>
+Class C
+    Public WriteOnly Property $$P As Integer
+End Class
+</Code>
+
+            TestReadWrite(code, EnvDTE80.vsCMPropertyKind.vsCMPropertyKindWriteOnly)
+        End Sub
+
 #End Region
 
 #Region "Setter tests"
@@ -796,10 +859,70 @@ End Class
 
 #End Region
 
+#Region "AddAttribute tests"
+
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub AddAttribute_NormalProperty()
+            Dim code =
+<Code>
+Imports System
+
+Class C
+    Property $$P As Integer
+        Get
+        End Get
+        Set(value As Integer)
+        End Set
+    End Property
+End Class
+</Code>
+
+            Dim expected =
+<Code>
+Imports System
+
+Class C
+    &lt;Serializable()&gt;
+    Property P As Integer
+        Get
+        End Get
+        Set(value As Integer)
+        End Set
+    End Property
+End Class
+</Code>
+            TestAddAttribute(code, expected, New AttributeData With {.Name = "Serializable"})
+        End Sub
+
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub AddAttribute_AutoProperty()
+            Dim code =
+<Code>
+Imports System
+
+Class C
+    Property $$P As Integer
+End Class
+</Code>
+
+            Dim expected =
+<Code>
+Imports System
+
+Class C
+    &lt;Serializable()&gt;
+    Property P As Integer
+End Class
+</Code>
+            TestAddAttribute(code, expected, New AttributeData With {.Name = "Serializable"})
+        End Sub
+
+#End Region
+
 #Region "AddParameter tests"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AddParameter1()
+        Public Sub AddParameter1()
             Dim code =
 <Code>
 Class C
@@ -828,7 +951,7 @@ End Class
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AddParameter2()
+        Public Sub AddParameter2()
             Dim code =
 <Code>
 Class C
@@ -861,7 +984,7 @@ End Class
 #Region "RemoveParamter tests"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub RemoveParameter1()
+        Public Sub RemoveParameter1()
             Dim code =
 <Code>
 Class C
@@ -1178,7 +1301,7 @@ End Class
 #Region "AutoImplementedPropertyExtender"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AutoImplementedPropertyExtender_IsAutoImplemented1()
+        Public Sub AutoImplementedPropertyExtender_IsAutoImplemented1()
             Dim code =
 <Code>
 Public Class C
@@ -1190,7 +1313,7 @@ End Class
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AutoImplementedPropertyExtender_IsAutoImplemented2()
+        Public Sub AutoImplementedPropertyExtender_IsAutoImplemented2()
             Dim code =
 <Code>
 Public Class C
@@ -1208,7 +1331,7 @@ End Class
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AutoImplementedPropertyExtender_IsAutoImplemented3()
+        Public Sub AutoImplementedPropertyExtender_IsAutoImplemented3()
             Dim code =
 <Code>
 Public Interface I
@@ -1217,6 +1340,56 @@ End Interface
 </Code>
 
             TestAutoImplementedPropertyExtender_IsAutoImplemented(code, False)
+        End Sub
+
+#End Region
+
+#Region "Parameter name tests"
+
+        <WorkItem(1147885)>
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub TestParameterNameWithEscapeCharacters()
+            Dim code =
+<Code>
+Class Program
+    Property $$P([integer] As Integer) As Integer
+        Get
+            Return [integer]
+        End Get
+        Set(value As Integer)
+
+        End Set
+    End Property
+    Sub Main(args As String())
+
+    End Sub
+End Class
+</Code>
+
+            TestAllParameterNames(code, "[integer]")
+        End Sub
+
+        <WorkItem(1147885)>
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub TestParameterNameWithEscapeCharacters_2()
+            Dim code =
+<Code>
+Class Program
+    Property $$P([integer] As Integer, [string] as String) As Integer
+        Get
+            Return [integer]
+        End Get
+        Set(value As Integer)
+
+        End Set
+    End Property
+    Sub Main(args As String())
+
+    End Sub
+End Class
+</Code>
+
+            TestAllParameterNames(code, "[integer]", "[string]")
         End Sub
 
 #End Region

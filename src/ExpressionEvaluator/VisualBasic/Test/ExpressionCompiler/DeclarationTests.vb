@@ -1,4 +1,6 @@
-﻿Imports System.Collections.Immutable
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports System.Collections.Immutable
 Imports Microsoft.CodeAnalysis.CodeGen
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.Test.Utilities
@@ -25,14 +27,14 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.UnitTests
         End If
     End Sub
 End Class"
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
             Dim runtime = CreateRuntimeInstance(comp)
             Dim context = CreateMethodContext(runtime, "C.M")
             Dim resultProperties As ResultProperties = Nothing
             Dim errorMessage As String = Nothing
             Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
             Dim testData = New CompilationTestData()
-            Dim result = context.CompileExpression(
+            context.CompileExpression(
                 InspectionContextFactory.Empty.Add("3", GetType(Integer)),
                 "z = $3",
                 DkmEvaluationFlags.None,
@@ -46,53 +48,29 @@ End Class"
             Assert.Equal(resultProperties.Flags, DkmClrCompilationResultFlags.PotentialSideEffect Or DkmClrCompilationResultFlags.ReadOnlyResult)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       52 (0x34)
-  .maxstack  2
+  // Code size       62 (0x3e)
+  .maxstack  4
   .locals init (Object V_0, //y
                 Boolean V_1,
-                Object V_2)
+                Object V_2,
+                System.Guid V_3)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""z""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""z""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
-  IL_001e:  ldstr      ""3""
-  IL_0023:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_0028:  unbox.any  ""Integer""
-  IL_002d:  box        ""Integer""
-  IL_0032:  stind.ref
-  IL_0033:  ret
+  IL_000f:  ldloca.s   V_3
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.3
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""z""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldstr      ""3""
+  IL_002d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0032:  unbox.any  ""Integer""
+  IL_0037:  box        ""Integer""
+  IL_003c:  stind.ref
+  IL_003d:  ret
 }")
-            Dim assembly = ImmutableArray.CreateRange(result.Assembly)
-            assembly.VerifyIL("<>x.<>CreateVariable",
-"{
-  // Code size        2 (0x2)
-  .maxstack  8
-  IL_0000:  ldnull
-  IL_0001:  throw
-}")
-            assembly.VerifyIL("<>x.<>GetVariableAddress",
-"{
-  // Code size        2 (0x2)
-  .maxstack  8
-  IL_0000:  ldnull
-  IL_0001:  throw
-}")
-            ' Verify <>CreateVariable is not generic and <>GetVariableAddress is.
-            Using metadata = ModuleMetadata.CreateFromImage(ImmutableArray.CreateRange(assembly))
-                Dim reader = metadata.MetadataReader
-                Dim typeDef = reader.GetTypeDef("<>x")
-                reader.CheckTypeParameters(typeDef.GetGenericParameters())
-                Dim methodDef = reader.GetMethodDef(typeDef, "<>CreateVariable")
-                reader.CheckTypeParameters(methodDef.GetGenericParameters())
-                Dim method = DirectCast(testData.GetMethodData("<>x.<>CreateVariable").Method, MethodSymbol)
-                Assert.Equal(method.CallingConvention, Cci.CallingConvention.Default)
-                methodDef = reader.GetMethodDef(typeDef, "<>GetVariableAddress")
-                reader.CheckTypeParameters(methodDef.GetGenericParameters(), "<>T")
-                method = DirectCast(testData.GetMethodData("<>x.<>GetVariableAddress(Of <>T)").Method, MethodSymbol)
-                Assert.Equal(method.CallingConvention, Cci.CallingConvention.Generic)
-            End Using
         End Sub
 
         <Fact>
@@ -106,15 +84,15 @@ End Class"
         Dim y As Object
     End Sub
 End Class"
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
             Dim runtime = CreateRuntimeInstance(comp)
             Dim context = CreateMethodContext(runtime, "C.M")
             Dim resultProperties As ResultProperties = Nothing
             Dim errorMessage As String = Nothing
             Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
             Dim testData = New CompilationTestData()
-            Dim result = context.CompileExpression(
-                InspectionContextFactory.Empty.Add("x", GetType(String)).Add("y", GetType(Integer)).Add("T", GetType(Object)).Add("D", "C").Add("F", GetType(Integer)),
+            context.CompileExpression(
+                InspectionContextFactory.Empty.Add("x", GetType(String)).Add("y", GetType(Integer)).Add("t", GetType(Object)).Add("d", "C").Add("f", GetType(Integer)),
                 "If(If(If(If(If(x, y), T), F), DirectCast(D, C).F), C.G)",
                 DkmEvaluationFlags.TreatAsExpression,
                 DiagnosticFormatter.Instance,
@@ -124,7 +102,7 @@ End Class"
                 EnsureEnglishUICulture.PreferredOrNull,
                 testData)
             Assert.Empty(missingAssemblyIdentities)
-            Assert.Equal(testData.Methods.Count, 4)
+            Assert.Equal(testData.Methods.Count, 2)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
   // Code size       78 (0x4e)
@@ -138,20 +116,20 @@ End Class"
   IL_0006:  dup
   IL_0007:  brtrue.s   IL_0014
   IL_0009:  pop
-  IL_000a:  ldstr      ""T""
-  IL_000f:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
+  IL_000a:  ldstr      ""t""
+  IL_000f:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
   IL_0014:  dup
   IL_0015:  brtrue.s   IL_002c
   IL_0017:  pop
-  IL_0018:  ldstr      ""F""
-  IL_001d:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
+  IL_0018:  ldstr      ""f""
+  IL_001d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
   IL_0022:  unbox.any  ""Integer""
   IL_0027:  box        ""Integer""
   IL_002c:  dup
   IL_002d:  brtrue.s   IL_0044
   IL_002f:  pop
-  IL_0030:  ldstr      ""D""
-  IL_0035:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
+  IL_0030:  ldstr      ""d""
+  IL_0035:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
   IL_003a:  castclass  ""C""
   IL_003f:  ldfld      ""C.F As Object""
   IL_0044:  dup
@@ -161,14 +139,6 @@ End Class"
   IL_004d:  ret
 }
 ")
-            Dim assembly = ImmutableArray.CreateRange(result.Assembly)
-            assembly.VerifyIL("<>x.<>GetObjectByAlias",
-"{
-  // Code size        2 (0x2)
-  .maxstack  8
-  IL_0000:  ldnull
-  IL_0001:  throw
-}")
         End Sub
 
         <Fact>
@@ -178,7 +148,7 @@ End Class"
     Shared Sub M()
     End Sub
 End Class"
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
             Dim runtime = CreateRuntimeInstance(comp)
             Dim context = CreateMethodContext(runtime, "C.M")
             Dim resultProperties As ResultProperties = Nothing
@@ -230,20 +200,25 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       52 (0x34)
-  .maxstack  2
+  // Code size       62 (0x3e)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""s""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""s""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
   IL_001e:  ldstr      ""s""
-  IL_0023:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_0028:  call       ""Function Microsoft.VisualBasic.CompilerServices.Conversions.ToString(Object) As String""
-  IL_002d:  call       ""Function M.F(String) As String""
-  IL_0032:  stind.ref
-  IL_0033:  ret
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldstr      ""s""
+  IL_002d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0032:  call       ""Function Microsoft.VisualBasic.CompilerServices.Conversions.ToString(Object) As String""
+  IL_0037:  call       ""Function M.F(String) As String""
+  IL_003c:  stind.ref
+  IL_003d:  ret
 }")
             testData = New CompilationTestData()
             context.CompileExpression(
@@ -259,22 +234,27 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       55 (0x37)
-  .maxstack  2
+  // Code size       65 (0x41)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""t""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""t""
-  IL_0019:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_001e:  dup
-  IL_001f:  brtrue.s   IL_002c
-  IL_0021:  pop
-  IL_0022:  ldstr      ""t""
-  IL_0027:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_002c:  call       ""Function System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(Object) As Object""
-  IL_0031:  call       ""Sub M.M(Object)""
-  IL_0036:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""t""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0028:  dup
+  IL_0029:  brtrue.s   IL_0036
+  IL_002b:  pop
+  IL_002c:  ldstr      ""t""
+  IL_0031:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0036:  call       ""Function System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(Object) As Object""
+  IL_003b:  call       ""Sub M.M(Object)""
+  IL_0040:  ret
 }")
         End Sub
 
@@ -310,17 +290,22 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       37 (0x25)
-  .maxstack  2
+  // Code size       47 (0x2f)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""o""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""o""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
-  IL_001e:  call       ""Function M.F(Of Object)(ByRef Object) As Object""
-  IL_0023:  pop
-  IL_0024:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""o""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  call       ""Function M.F(Of Object)(ByRef Object) As Object""
+  IL_002d:  pop
+  IL_002e:  ret
 }")
         End Sub
 
@@ -331,7 +316,7 @@ End Module"
     Shared Sub M()
     End Sub
 End Class"
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
             Dim runtime = CreateRuntimeInstance(comp)
             Dim context = CreateMethodContext(runtime, "C.M")
             Dim resultProperties As ResultProperties = Nothing
@@ -339,7 +324,7 @@ End Class"
             Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
             Dim testData = New CompilationTestData()
             context.CompileExpression(
-                InspectionContextFactory.Empty.Add("Class", GetType(Object)),
+                InspectionContextFactory.Empty.Add("class", GetType(Object)),
                 "[Me] = [Class]",
                 DkmEvaluationFlags.None,
                 DiagnosticFormatter.Instance,
@@ -351,19 +336,24 @@ End Class"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       47 (0x2f)
-  .maxstack  2
+  // Code size       57 (0x39)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
-  IL_000a:  ldstr      ""Me""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""Me""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
-  IL_001e:  ldstr      ""Class""
-  IL_0023:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_0028:  call       ""Function System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(Object) As Object""
-  IL_002d:  stind.ref
-  IL_002e:  ret
+  IL_000a:  ldstr      ""me""
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""me""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldstr      ""class""
+  IL_002d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0032:  call       ""Function System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(Object) As Object""
+  IL_0037:  stind.ref
+  IL_0038:  ret
 }")
         End Sub
 
@@ -374,7 +364,7 @@ End Class"
     Shared Sub M(Of T)(x As T)
     End Sub
 End Class"
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
             Dim runtime = CreateRuntimeInstance(comp)
             Dim context = CreateMethodContext(runtime, "C.M")
             Dim resultProperties As ResultProperties = Nothing
@@ -394,18 +384,23 @@ End Class"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       38 (0x26)
-  .maxstack  2
+  // Code size       48 (0x30)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""y""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""y""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
-  IL_001e:  ldarg.0
-  IL_001f:  box        ""T""
-  IL_0024:  stind.ref
-  IL_0025:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""y""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldarg.0
+  IL_0029:  box        ""T""
+  IL_002e:  stind.ref
+  IL_002f:  ret
 }")
         End Sub
 
@@ -440,18 +435,23 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       38 (0x26)
-  .maxstack  2
+  // Code size       48 (0x30)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
-  IL_001e:  ldc.i4.3
-  IL_001f:  box        ""Integer""
-  IL_0024:  stind.ref
-  IL_0025:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldc.i4.3
+  IL_0029:  box        ""Integer""
+  IL_002e:  stind.ref
+  IL_002f:  ret
 }")
 
             ' Integer
@@ -469,17 +469,22 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       33 (0x21)
-  .maxstack  2
+  // Code size       43 (0x2b)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Integer""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Integer)(String) As Integer""
-  IL_001e:  ldc.i4.3
-  IL_001f:  stind.i4
-  IL_0020:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Integer)(String) As Integer""
+  IL_0028:  ldc.i4.3
+  IL_0029:  stind.i4
+  IL_002a:  ret
 }")
 
             ' Long
@@ -497,18 +502,23 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       34 (0x22)
-  .maxstack  2
+  // Code size       44 (0x2c)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Long""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Long)(String) As Long""
-  IL_001e:  ldc.i4.3
-  IL_001f:  conv.i8
-  IL_0020:  stind.i8
-  IL_0021:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Long)(String) As Long""
+  IL_0028:  ldc.i4.3
+  IL_0029:  conv.i8
+  IL_002a:  stind.i8
+  IL_002b:  ret
 }")
 
             ' Single
@@ -526,17 +536,22 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       37 (0x25)
-  .maxstack  2
+  // Code size       47 (0x2f)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Single""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Single)(String) As Single""
-  IL_001e:  ldc.r4     3
-  IL_0023:  stind.r4
-  IL_0024:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Single)(String) As Single""
+  IL_0028:  ldc.r4     3
+  IL_002d:  stind.r4
+  IL_002e:  ret
 }")
 
             ' Double
@@ -554,17 +569,22 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       41 (0x29)
-  .maxstack  2
+  // Code size       51 (0x33)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Double""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Double)(String) As Double""
-  IL_001e:  ldc.r8     3
-  IL_0027:  stind.r8
-  IL_0028:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Double)(String) As Double""
+  IL_0028:  ldc.r8     3
+  IL_0031:  stind.r8
+  IL_0032:  ret
 }")
 
             ' String
@@ -582,18 +602,23 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       38 (0x26)
-  .maxstack  2
+  // Code size       48 (0x30)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""String""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of String)(String) As String""
-  IL_001e:  ldc.i4.3
-  IL_001f:  call       ""Function Microsoft.VisualBasic.CompilerServices.Conversions.ToString(Integer) As String""
-  IL_0024:  stind.ref
-  IL_0025:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of String)(String) As String""
+  IL_0028:  ldc.i4.3
+  IL_0029:  call       ""Function Microsoft.VisualBasic.CompilerServices.Conversions.ToString(Integer) As String""
+  IL_002e:  stind.ref
+  IL_002f:  ret
 }")
 
             ' Decimal
@@ -611,19 +636,24 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       43 (0x2b)
-  .maxstack  2
+  // Code size       53 (0x35)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Decimal""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Decimal)(String) As Decimal""
-  IL_001e:  ldc.i4.3
-  IL_001f:  conv.i8
-  IL_0020:  newobj     ""Sub Decimal..ctor(Long)""
-  IL_0025:  stobj      ""Decimal""
-  IL_002a:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Decimal)(String) As Decimal""
+  IL_0028:  ldc.i4.3
+  IL_0029:  conv.i8
+  IL_002a:  newobj     ""Sub Decimal..ctor(Long)""
+  IL_002f:  stobj      ""Decimal""
+  IL_0034:  ret
 }")
         End Sub
 
@@ -730,18 +760,23 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       38 (0x26)
-  .maxstack  2
+  // Code size       48 (0x30)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""a""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""a""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
-  IL_001e:  ldc.i4.4
-  IL_001f:  newarr     ""Object""
-  IL_0024:  stind.ref
-  IL_0025:  ret
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""a""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldc.i4.4
+  IL_0029:  newarr     ""Object""
+  IL_002e:  stind.ref
+  IL_002f:  ret
 }")
             testData = New CompilationTestData()
             context.CompileExpression(
@@ -757,22 +792,27 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       58 (0x3a)
-  .maxstack  3
+  // Code size       68 (0x44)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""a""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""a""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
   IL_001e:  ldstr      ""a""
-  IL_0023:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_0028:  castclass  ""System.Array""
-  IL_002d:  ldc.i4.4
-  IL_002e:  newarr     ""Object""
-  IL_0033:  call       ""Function Microsoft.VisualBasic.CompilerServices.Utils.CopyArray(System.Array, System.Array) As System.Array""
-  IL_0038:  stind.ref
-  IL_0039:  ret
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldstr      ""a""
+  IL_002d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0032:  castclass  ""System.Array""
+  IL_0037:  ldc.i4.4
+  IL_0038:  newarr     ""Object""
+  IL_003d:  call       ""Function Microsoft.VisualBasic.CompilerServices.Utils.CopyArray(System.Array, System.Array) As System.Array""
+  IL_0042:  stind.ref
+  IL_0043:  ret
 }")
         End Sub
 
@@ -804,22 +844,118 @@ End Module"
             Assert.Empty(missingAssemblyIdentities)
             testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
-  // Code size       53 (0x35)
-  .maxstack  3
+  // Code size       63 (0x3f)
+  .maxstack  4
+  .locals init (System.Guid V_0)
   IL_0000:  ldtoken    ""Object""
   IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
   IL_000a:  ldstr      ""x""
-  IL_000f:  call       ""Sub <>x.<>CreateVariable(System.Type, String)""
-  IL_0014:  ldstr      ""x""
-  IL_0019:  call       ""Function <>x.<>GetVariableAddress(Of Object)(String) As Object""
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
   IL_001e:  ldstr      ""x""
-  IL_0023:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
-  IL_0028:  ldc.i4.1
-  IL_0029:  box        ""Integer""
-  IL_002e:  call       ""Function Microsoft.VisualBasic.CompilerServices.Operators.AddObject(Object, Object) As Object""
-  IL_0033:  stind.ref
-  IL_0034:  ret
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldstr      ""x""
+  IL_002d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0032:  ldc.i4.1
+  IL_0033:  box        ""Integer""
+  IL_0038:  call       ""Function Microsoft.VisualBasic.CompilerServices.Operators.AddObject(Object, Object) As Object""
+  IL_003d:  stind.ref
+  IL_003e:  ret
 }")
+        End Sub
+
+        <WorkItem(1115044, "DevDiv")>
+        <Fact>
+        Public Sub CaseSensitivity()
+            Const source =
+"Class C
+    Shared Sub M()
+    End Sub
+End Class"
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim runtime = CreateRuntimeInstance(comp)
+            Dim context = CreateMethodContext(runtime, "C.M")
+            Dim resultProperties As ResultProperties = Nothing
+            Dim errorMessage As String = Nothing
+            Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
+            Dim testData = New CompilationTestData()
+            Dim result = context.CompileExpression(
+                InspectionContextFactory.Empty.Add("x", GetType(String)),
+                "X",
+                DkmEvaluationFlags.TreatAsExpression,
+                DiagnosticFormatter.Instance,
+                resultProperties,
+                errorMessage,
+                missingAssemblyIdentities,
+                EnsureEnglishUICulture.PreferredOrNull,
+                testData)
+            Assert.Empty(missingAssemblyIdentities)
+            Assert.Null(errorMessage)
+            testData.GetMethodData("<>x.<>m0").VerifyIL(
+"{
+  // Code size       16 (0x10)
+  .maxstack  1
+  IL_0000:  ldstr      ""x""
+  IL_0005:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_000a:  castclass  ""String""
+  IL_000f:  ret
+}
+")
+        End Sub
+
+        <WorkItem(1115044, "DevDiv")>
+        <Fact>
+        Public Sub CaseSensitivity_ImplicitDeclaration()
+            Const source =
+"Class C
+    Shared Sub M()
+    End Sub
+End Class"
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName())
+            Dim runtime = CreateRuntimeInstance(comp)
+            Dim context = CreateMethodContext(runtime, "C.M")
+            Dim resultProperties As ResultProperties = Nothing
+            Dim errorMessage As String = Nothing
+            Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
+            Dim testData = New CompilationTestData()
+            Dim result = context.CompileExpression(
+                InspectionContextFactory.Empty,
+                "x = X",
+                DkmEvaluationFlags.None,
+                DiagnosticFormatter.Instance,
+                resultProperties,
+                errorMessage,
+                missingAssemblyIdentities,
+                EnsureEnglishUICulture.PreferredOrNull,
+                testData)
+            Assert.Empty(missingAssemblyIdentities)
+            Assert.Null(errorMessage) ' Use before initialization is allowed in the EE.
+            ' Note that all x's are lowercase (i.e. normalized).
+            testData.GetMethodData("<>x.<>m0").VerifyIL(
+"{
+  // Code size       57 (0x39)
+  .maxstack  4
+  .locals init (System.Guid V_0)
+  IL_0000:  ldtoken    ""Object""
+  IL_0005:  call       ""Function System.Type.GetTypeFromHandle(System.RuntimeTypeHandle) As System.Type""
+  IL_000a:  ldstr      ""x""
+  IL_000f:  ldloca.s   V_0
+  IL_0011:  initobj    ""System.Guid""
+  IL_0017:  ldloc.0
+  IL_0018:  ldnull
+  IL_0019:  call       ""Sub Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.CreateVariable(System.Type, String, System.Guid, Byte())""
+  IL_001e:  ldstr      ""x""
+  IL_0023:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetVariableAddress(Of Object)(String) As Object""
+  IL_0028:  ldstr      ""x""
+  IL_002d:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
+  IL_0032:  call       ""Function System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(Object) As Object""
+  IL_0037:  stind.ref
+  IL_0038:  ret
+}
+")
         End Sub
 
     End Class

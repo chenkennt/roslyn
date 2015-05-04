@@ -8,6 +8,10 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.CodeModel
             Return codeElement.Access
         End Function
 
+        Protected Overrides Function GetAttributes(codeElement As EnvDTE80.CodeDelegate2) As EnvDTE.CodeElements
+            Return codeElement.Attributes
+        End Function
+
         Protected Overrides Function GetComment(codeElement As EnvDTE80.CodeDelegate2) As String
             Return codeElement.Comment
         End Function
@@ -58,6 +62,10 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.CodeModel
 
         Protected Overrides Function AddParameter(codeElement As EnvDTE80.CodeDelegate2, data As ParameterData) As EnvDTE.CodeParameter
             Return codeElement.AddParameter(data.Name, data.Type, data.Position)
+        End Function
+
+        Protected Overrides Function GetParameters(codeElement As EnvDTE80.CodeDelegate2) As EnvDTE.CodeElements
+            Return codeElement.Parameters
         End Function
 
         Protected Overrides Sub RemoveChild(codeElement As EnvDTE80.CodeDelegate2, child As Object)

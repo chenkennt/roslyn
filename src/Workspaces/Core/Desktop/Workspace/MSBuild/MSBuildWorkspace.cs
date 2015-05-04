@@ -81,12 +81,12 @@ namespace Microsoft.CodeAnalysis.MSBuild
         {
             if (properties == null)
             {
-                throw new ArgumentNullException("properties");
+                throw new ArgumentNullException(nameof(properties));
             }
 
             if (hostServices == null)
             {
-                throw new ArgumentNullException("hostServices");
+                throw new ArgumentNullException(nameof(hostServices));
             }
 
             return new MSBuildWorkspace(hostServices, properties.ToImmutableDictionary());
@@ -128,12 +128,12 @@ namespace Microsoft.CodeAnalysis.MSBuild
         {
             if (language == null)
             {
-                throw new ArgumentNullException("language");
+                throw new ArgumentNullException(nameof(language));
             }
 
             if (projectFileExtension == null)
             {
-                throw new ArgumentNullException("projectFileExtension");
+                throw new ArgumentNullException(nameof(projectFileExtension));
             }
 
             using (_dataGuard.DisposableWait())
@@ -183,9 +183,9 @@ namespace Microsoft.CodeAnalysis.MSBuild
                 if (!string.IsNullOrEmpty(solutionFilePath))
                 {
                     string solutionDirectory = Path.GetDirectoryName(solutionFilePath);
-                    if (!solutionDirectory.EndsWith("\\"))
+                    if (!solutionDirectory.EndsWith(@"\", StringComparison.Ordinal))
                     {
-                        solutionDirectory += "\\";
+                        solutionDirectory += @"\";
                     }
 
                     if (Directory.Exists(solutionDirectory))
@@ -364,7 +364,7 @@ namespace Microsoft.CodeAnalysis.MSBuild
 
             this.ClearSolution();
 
-            var absoluteSolutionPath = this.GetAbsoluteSolutionPath(solutionFilePath, Environment.CurrentDirectory);
+            var absoluteSolutionPath = this.GetAbsoluteSolutionPath(solutionFilePath, Directory.GetCurrentDirectory());
 
             using (_dataGuard.DisposableWait(cancellationToken))
             {
@@ -501,11 +501,11 @@ namespace Microsoft.CodeAnalysis.MSBuild
         {
             if (projectFilePath == null)
             {
-                throw new ArgumentNullException("projectFilePath");
+                throw new ArgumentNullException(nameof(projectFilePath));
             }
 
             string fullPath;
-            if (this.TryGetAbsoluteProjectPath(projectFilePath, Environment.CurrentDirectory, ReportMode.Throw, out fullPath))
+            if (this.TryGetAbsoluteProjectPath(projectFilePath, Directory.GetCurrentDirectory(), ReportMode.Throw, out fullPath))
             {
                 IProjectFileLoader loader;
                 if (this.TryGetLoaderFromProjectPath(projectFilePath, ReportMode.Throw, out loader))
@@ -846,7 +846,16 @@ namespace Microsoft.CodeAnalysis.MSBuild
         private async Task<MetadataReference> GetProjectMetadata(string projectFilePath, ImmutableArray<string> aliases, IDictionary<string, string> globalProperties, CancellationToken cancellationToken)
         {
             // use loader service to determine output file for project if possible
-            var outputFilePath = await ProjectFileLoader.GetOutputFilePathAsync(projectFilePath, globalProperties, cancellationToken).ConfigureAwait(false);
+            string outputFilePath = null;
+
+            try
+            {
+                outputFilePath = await ProjectFileLoader.GetOutputFilePathAsync(projectFilePath, globalProperties, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                this.OnWorkspaceFailed(new WorkspaceDiagnostic(WorkspaceDiagnosticKind.Failure, e.Message));
+            }
 
             if (outputFilePath != null && File.Exists(outputFilePath))
             {

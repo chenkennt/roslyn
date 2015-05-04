@@ -1,4 +1,3 @@
-#If False Then
 ' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 Imports System.Collections.Immutable
@@ -27,7 +26,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 Assert.Equal(manager.Identifier, StandardTables.TasksTable)
                 Assert.Equal(1, manager.Sources.Count())
 
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 AssertEx.SetEqual(table.Columns, manager.GetColumnsForSources(SpecializedCollections.SingletonEnumerable(source)))
 
                 Assert.Equal(ServicesVSResources.TodoTableSourceName, source.DisplayName)
@@ -58,7 +57,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -76,7 +75,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 Dim table = New VisualStudioTodoListTable(workspace, provider, tableManagerProvider)
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
 
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -85,7 +84,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
                 Assert.Equal(1, sink.Entries.Count)
 
-                provider.Items = New ITaskItem() {}
+                provider.Items = Array.Empty(Of ITaskItem)()
                 provider.RaiseClearTodoListUpdated(workspace, documentId)
                 Assert.Equal(0, sink.Entries.Count)
             End Using
@@ -104,7 +103,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -145,7 +144,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -154,7 +153,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 Dim factory = TryCast(sink.Entries.First(), AbstractTableEntriesFactory(Of TodoTaskItem))
                 Dim snapshot1 = factory.GetCurrentSnapshot()
 
-                factory.OnUpdated()
+                factory.OnUpdated(snapshot1.Count)
 
                 Dim snapshot2 = factory.GetCurrentSnapshot()
 
@@ -193,7 +192,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -202,7 +201,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 Dim factory = TryCast(sink.Entries.First(), AbstractTableEntriesFactory(Of TodoTaskItem))
                 Dim snapshot1 = factory.GetCurrentSnapshot()
 
-                factory.OnUpdated()
+                factory.OnUpdated(snapshot1.Count)
 
                 Dim snapshot2 = factory.GetCurrentSnapshot()
 
@@ -223,7 +222,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -256,7 +255,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -289,7 +288,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
                 provider.RaiseTodoListUpdated(workspace)
 
                 Dim manager = DirectCast(table.TableManager, TestTableManagerProvider.TestTableManager)
-                Dim source = DirectCast(manager.Sources.First(), AbstractTableDataSource(Of TaskListEventArgs, TodoTaskItem))
+                Dim source = DirectCast(manager.Sources.First(), AbstractRoslynTableDataSource(Of TaskListEventArgs, TodoTaskItem))
                 Dim sinkAndSubscription = manager.Sinks_TestOnly.First()
 
                 Dim sink = DirectCast(sinkAndSubscription.Key, TestTableManagerProvider.TestTableManager.TestSink)
@@ -344,4 +343,3 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.Diagnostics
         End Class
     End Class
 End Namespace
-#end if

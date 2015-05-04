@@ -106,10 +106,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             {
                 case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.ConstructorDeclaration:
-                case SyntaxKind.PropertyDeclaration:
                 case SyntaxKind.EventDeclaration:
                 case SyntaxKind.IndexerDeclaration:
                     return memberDeclaration.GetModifiers().Any(SyntaxKind.StaticKeyword);
+
+                case SyntaxKind.PropertyDeclaration:
+                    return node.IsFoundUnder((PropertyDeclarationSyntax p) => p.Initializer);
 
                 case SyntaxKind.FieldDeclaration:
                     // Inside a field one can only access static members of a type.
@@ -840,7 +842,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             // we could check up front that index is within FullSpan,
             // but we wan to optimize for the common case where position is valid.
             Debug.Assert(!self.FullSpan.Contains(position), "Position is valid. How could we not find a child?");
-            throw new ArgumentOutOfRangeException("position");
+            throw new ArgumentOutOfRangeException(nameof(position));
         }
 
         public static SyntaxNode GetParent(this SyntaxNode node)
@@ -1057,6 +1059,12 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
                 return block.ContainsInBlockBody(span);
             }
 
+            var expressionBodiedMember = node as ArrowExpressionClauseSyntax;
+            if (expressionBodiedMember != null)
+            {
+                return expressionBodiedMember.ContainsInExpressionBodiedMemberBody(span);
+            }
+
             var field = node as FieldDeclarationSyntax;
             if (field != null)
             {
@@ -1103,6 +1111,17 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
 
             var blockSpan = TextSpan.FromBounds(block.OpenBraceToken.Span.End, block.CloseBraceToken.SpanStart);
             return blockSpan.Contains(textSpan);
+        }
+
+        public static bool ContainsInExpressionBodiedMemberBody(this ArrowExpressionClauseSyntax expressionBodiedMember, TextSpan textSpan)
+        {
+            if (expressionBodiedMember == null)
+            {
+                return false;
+            }
+
+            var expressionBodiedMemberBody = TextSpan.FromBounds(expressionBodiedMember.Expression.SpanStart, expressionBodiedMember.Expression.Span.End);
+            return expressionBodiedMemberBody.Contains(textSpan);
         }
 
         public static IEnumerable<MemberDeclarationSyntax> GetMembers(this SyntaxNode node)
@@ -1156,7 +1175,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             }
 
             var property = node as BasePropertyDeclarationSyntax;
-            if (property != null)
+            if (property != null && property.AccessorList != null)
             {
                 return property.AccessorList.Accessors.Select(a => a.Body).WhereNotNull();
             }
@@ -1198,6 +1217,22 @@ namespace Microsoft.CodeAnalysis.CSharp.Extensions
             }
 
             return null;
+        }
+
+        public static ConditionalAccessExpressionSyntax GetInnerMostConditionalAccessExpression(this SyntaxNode node)
+        {
+            if (!(node is ConditionalAccessExpressionSyntax))
+            {
+                return null;
+            }
+
+            var result = (ConditionalAccessExpressionSyntax)node;
+            while (result.WhenNotNull is ConditionalAccessExpressionSyntax)
+            {
+                result = (ConditionalAccessExpressionSyntax)result.WhenNotNull;
+            }
+
+            return result;
         }
     }
 }

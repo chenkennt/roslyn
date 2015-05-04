@@ -8,11 +8,13 @@ using System.Runtime.InteropServices;
 using System.Windows.Media;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.Internal.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.LanguageServices.Implementation.ProjectSystem;
+using Microsoft.VisualStudio.LanguageServices.Implementation.Utilities;
 using Microsoft.VisualStudio.Shell.Interop;
 using Roslyn.Utilities;
 
@@ -23,20 +25,17 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.SolutionExplore
         private readonly DiagnosticDescriptor _descriptor;
         private ReportDiagnostic _effectiveSeverity;
         private readonly AnalyzerItem _analyzerItem;
-
-        private static readonly ContextMenuController s_diagnosticContextMenuController =
-            new ContextMenuController(
-                ID.RoslynCommands.DiagnosticContextMenu,
-                items => items.All(item => item is DiagnosticItem));
+        private readonly IContextMenuController _contextMenuController;
 
         public override event PropertyChangedEventHandler PropertyChanged;
 
-        public DiagnosticItem(AnalyzerItem analyzerItem, DiagnosticDescriptor descriptor, ReportDiagnostic effectiveSeverity)
+        public DiagnosticItem(AnalyzerItem analyzerItem, DiagnosticDescriptor descriptor, ReportDiagnostic effectiveSeverity, IContextMenuController contextMenuController)
             : base(string.Format("{0}: {1}", descriptor.Id, descriptor.Title))
         {
             _analyzerItem = analyzerItem;
             _descriptor = descriptor;
             _effectiveSeverity = effectiveSeverity;
+            _contextMenuController = contextMenuController;
         }
 
         public override ImageMoniker IconMoniker
@@ -80,8 +79,26 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.SolutionExplore
         {
             get
             {
-                return s_diagnosticContextMenuController;
+                return _contextMenuController;
             }
+        }
+
+        public Uri GetHelpLink()
+        {
+            Uri link;
+            if (BrowserHelper.TryGetUri(Descriptor.HelpLinkUri, out link))
+            {
+                return link;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Descriptor.Id))
+            {
+                // we use message format here since we don't have actual instance of diagnostic here. 
+                // (which means we do not have a message)
+                return BrowserHelper.CreateBingQueryUri(Descriptor.Id, Descriptor.MessageFormat.ToString(DiagnosticData.USCultureInfo));
+            }
+
+            return null;
         }
 
         internal void UpdateEffectiveSeverity(ReportDiagnostic newEffectiveSeverity)

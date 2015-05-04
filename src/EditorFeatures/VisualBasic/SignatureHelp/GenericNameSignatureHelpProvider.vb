@@ -117,7 +117,7 @@ Namespace Microsoft.CodeAnalysis.Editor.VisualBasic.SignatureHelp
                     symbol, semanticModel, position,
                     symbolDisplayService, anonymousTypeDisplayService,
                     False,
-                    symbol.GetDocumentationParts(semanticModel, position, documentationCommentFormattingService, cancellationToken),
+                    symbol.GetDocumentationPartsFactory(semanticModel, position, documentationCommentFormattingService),
                     GetPreambleParts(namedType, semanticModel, position), GetSeparatorParts(), GetPostambleParts(namedType), namedType.TypeParameters.[Select](Function(p) Convert(p, semanticModel, position, documentationCommentFormattingService, cancellationToken)))
             Else
                 Dim method = DirectCast(symbol, IMethodSymbol)
@@ -125,24 +125,24 @@ Namespace Microsoft.CodeAnalysis.Editor.VisualBasic.SignatureHelp
                     symbol, semanticModel, position,
                     symbolDisplayService, anonymousTypeDisplayService,
                     False,
-                    symbol.GetDocumentationParts(semanticModel, position, documentationCommentFormattingService, cancellationToken),
+                    symbol.GetDocumentationPartsFactory(semanticModel, position, documentationCommentFormattingService),
                     GetPreambleParts(method, semanticModel, position), GetSeparatorParts(), GetPostambleParts(method, semanticModel, position), method.TypeParameters.[Select](Function(p) Convert(p, semanticModel, position, documentationCommentFormattingService, cancellationToken)))
             End If
 
             Return item
         End Function
 
-        Private Shared ReadOnly MinimallyQualifiedFormat As SymbolDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(SymbolDisplayFormat.MinimallyQualifiedFormat.GenericsOptions Or SymbolDisplayGenericsOptions.IncludeVariance)
+        Private Shared ReadOnly s_minimallyQualifiedFormat As SymbolDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(SymbolDisplayFormat.MinimallyQualifiedFormat.GenericsOptions Or SymbolDisplayGenericsOptions.IncludeVariance)
 
         Private Overloads Function Convert(parameter As ITypeParameterSymbol, semanticModel As SemanticModel, position As Integer, documentationCommentFormattingService As IDocumentationCommentFormattingService, cancellationToken As CancellationToken) As SignatureHelpParameter
             Dim parts = New List(Of SymbolDisplayPart)
-            parts.AddRange(parameter.ToMinimalDisplayParts(semanticModel, position, MinimallyQualifiedFormat))
+            parts.AddRange(parameter.ToMinimalDisplayParts(semanticModel, position, s_minimallyQualifiedFormat))
             AddConstraints(parameter, parts, semanticModel, position, cancellationToken)
 
             Return New SignatureHelpParameter(
                 parameter.Name,
                 isOptional:=False,
-                documentation:=parameter.GetDocumentationParts(semanticModel, position, documentationCommentFormattingService, cancellationToken),
+                documentationFactory:=parameter.GetDocumentationPartsFactory(semanticModel, position, documentationCommentFormattingService),
                 displayParts:=parts)
         End Function
 

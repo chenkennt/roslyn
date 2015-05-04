@@ -1548,7 +1548,7 @@ End Class
             comp.AssertNoDiagnostics()
 
             Dim accessor = comp.GlobalNamespace.GetMember(Of NamedTypeSymbol)("C").GetMember(Of PropertySymbol)("P").GetMethod
-            Assert.True(accessor.MetadataName.StartsWith("_"))
+            Assert.True(accessor.MetadataName.StartsWith("_", StringComparison.Ordinal))
         End Sub
 
         <Fact>
@@ -2023,7 +2023,7 @@ Imports System
 
 <Assembly: CLSCompliant(True)>
                         ]]>
-                                                                                                                                               </file>
+                    </file>
                 </compilation>
 
             CreateCompilationWithMscorlib(source, options:=TestOptions.ReleaseDll.WithRootNamespace("_A.B.C")).AssertTheseDiagnostics(<errors><![CDATA[

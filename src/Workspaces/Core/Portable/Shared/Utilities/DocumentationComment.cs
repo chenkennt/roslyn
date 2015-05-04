@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Threading;
 using System.Xml;
 using XmlNames = Roslyn.Utilities.DocumentationCommentXmlNames;
 
@@ -72,13 +73,26 @@ namespace Microsoft.CodeAnalysis.Shared.Utilities
         }
 
         /// <summary>
+        /// Cache of the most recently parsed fragment and the resulting DocumentationComment
+        /// </summary>
+        private static volatile DocumentationComment s_cacheLastXmlFragmentParse;
+
+        /// <summary>
         /// Parses and constructs a <see cref="DocumentationComment" /> from the given fragment of XML.
         /// </summary>
         /// <param name="xml">The fragment of XML to parse.</param>
         /// <returns>A DocumentationComment instance.</returns>
         public static DocumentationComment FromXmlFragment(string xml)
         {
-            return CommentBuilder.Parse(xml);
+            var result = s_cacheLastXmlFragmentParse;
+            if (result == null || result.FullXmlFragment != xml)
+            {
+                // Cache miss
+                result = CommentBuilder.Parse(xml);
+                s_cacheLastXmlFragmentParse = result;
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -87,10 +101,10 @@ namespace Microsoft.CodeAnalysis.Shared.Utilities
         private class CommentBuilder
         {
             private readonly DocumentationComment _comment;
-            private ImmutableArray<string>.Builder _parameterNamesBuilder = null;
-            private ImmutableArray<string>.Builder _typeParameterNamesBuilder = null;
-            private ImmutableArray<string>.Builder _exceptionTypesBuilder = null;
-            private Dictionary<string, ImmutableArray<string>.Builder> _exceptionTextBuilders = null;
+            private ImmutableArray<string>.Builder _parameterNamesBuilder;
+            private ImmutableArray<string>.Builder _typeParameterNamesBuilder;
+            private ImmutableArray<string>.Builder _exceptionTypesBuilder;
+            private Dictionary<string, ImmutableArray<string>.Builder> _exceptionTextBuilders;
 
             /// <summary>
             /// Parse and construct a <see cref="DocumentationComment" /> from the given fragment of XML.

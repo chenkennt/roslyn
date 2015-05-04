@@ -1,4 +1,6 @@
-﻿Imports Microsoft.Cci
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports Microsoft.Cci
 Imports Microsoft.CodeAnalysis.CodeGen
 Imports Microsoft.CodeAnalysis.Emit
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
@@ -57,6 +59,12 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
             End If
             Return MyBase.TranslateModule(symbol, diagnostics)
         End Function
+
+        Friend Overrides ReadOnly Property IgnoreAccessibility As Boolean
+            Get
+                Return True
+            End Get
+        End Property
 
         Public Overrides ReadOnly Property CurrentGenerationOrdinal As Integer
             Get
@@ -165,12 +173,13 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
                 Return False
             End Function
 
-            Public Overrides Function TryGetPreviousClosure(scopeSyntax As SyntaxNode, <Out> ByRef closureOrdinal As Integer) As Boolean
+            Public Overrides Function TryGetPreviousClosure(scopeSyntax As SyntaxNode, <Out> ByRef closureId As DebugId) As Boolean
+                closureId = Nothing
                 Return False
             End Function
 
-            Public Overrides Function TryGetPreviousLambda(lambdaOrLambdaBodySyntax As SyntaxNode, isLambdaBody As Boolean, <Out> ByRef lambdaOrdinal As Integer) As Boolean
-                lambdaOrdinal = -1
+            Public Overrides Function TryGetPreviousLambda(lambdaOrLambdaBodySyntax As SyntaxNode, isLambdaBody As Boolean, <Out> ByRef lambdaId As DebugId) As Boolean
+                lambdaId = Nothing
                 Return False
             End Function
 
@@ -180,7 +189,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
                 End Get
             End Property
 
-            Public Overrides ReadOnly Property PreviousMethodId As MethodDebugId
+            Public Overrides ReadOnly Property MethodId As DebugId?
                 Get
                     Return Nothing
                 End Get

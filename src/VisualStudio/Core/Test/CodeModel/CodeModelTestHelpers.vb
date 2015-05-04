@@ -97,7 +97,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.CodeModel
 
             ' Here we use vsCMElementOther to mean "Figure out the scope from the type parameter".
             Dim candidateScopes = If(scope = EnvDTE.vsCMElement.vsCMElementOther,
-                                     map(GetType(T)),
+                                     s_map(GetType(T)),
                                      {scope})
 
             Dim result As EnvDTE.CodeElement = Nothing
@@ -131,7 +131,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.CodeModel
             Return XElement.Parse(xml)
         End Function
 
-        Dim map As New Dictionary(Of Type, EnvDTE.vsCMElement()) From
+        Private s_map As New Dictionary(Of Type, EnvDTE.vsCMElement()) From
             {{GetType(EnvDTE.CodeAttribute), {EnvDTE.vsCMElement.vsCMElementAttribute}},
              {GetType(EnvDTE80.CodeAttribute2), {EnvDTE.vsCMElement.vsCMElementAttribute}},
              {GetType(EnvDTE.CodeClass), {EnvDTE.vsCMElement.vsCMElementClass, EnvDTE.vsCMElement.vsCMElementModule}},
@@ -141,8 +141,8 @@ Namespace Microsoft.VisualStudio.LanguageServices.UnitTests.CodeModel
              {GetType(EnvDTE80.CodeElement2), {EnvDTE.vsCMElement.vsCMElementOptionStmt, EnvDTE.vsCMElement.vsCMElementInheritsStmt, EnvDTE.vsCMElement.vsCMElementImplementsStmt}},
              {GetType(EnvDTE.CodeEnum), {EnvDTE.vsCMElement.vsCMElementEnum}},
              {GetType(EnvDTE80.CodeEvent), {EnvDTE.vsCMElement.vsCMElementEvent}},
-             {GetType(EnvDTE.CodeFunction), {EnvDTE.vsCMElement.vsCMElementFunction}},
-             {GetType(EnvDTE80.CodeFunction2), {EnvDTE.vsCMElement.vsCMElementFunction}},
+             {GetType(EnvDTE.CodeFunction), {EnvDTE.vsCMElement.vsCMElementFunction, EnvDTE.vsCMElement.vsCMElementDeclareDecl}},
+             {GetType(EnvDTE80.CodeFunction2), {EnvDTE.vsCMElement.vsCMElementFunction, EnvDTE.vsCMElement.vsCMElementDeclareDecl}},
              {GetType(EnvDTE80.CodeImport), {EnvDTE.vsCMElement.vsCMElementImportStmt}},
              {GetType(EnvDTE.CodeInterface), {EnvDTE.vsCMElement.vsCMElementInterface}},
              {GetType(EnvDTE80.CodeInterface2), {EnvDTE.vsCMElement.vsCMElementInterface}},

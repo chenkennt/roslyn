@@ -1,38 +1,37 @@
 // Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+using Roslyn.Utilities;
 using System;
-using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 
 namespace Microsoft.CodeAnalysis.ExpressionEvaluator
 {
     internal static class InspectionContextFactory
     {
-        internal static readonly InspectionContextImpl Empty = new InspectionContextImpl(ImmutableDictionary.Create<string, string>());
+        internal static readonly InspectionContextImpl Empty = new InspectionContextImpl(new ReadOnlyCollection<Alias>(new Alias[0]));
 
         internal sealed class InspectionContextImpl : InspectionContext
         {
-            private readonly ImmutableDictionary<string, string> _types;
+            private readonly ReadOnlyCollection<Alias> _variables;
 
-            internal InspectionContextImpl(ImmutableDictionary<string, string> types)
+            internal InspectionContextImpl(ReadOnlyCollection<Alias> variables)
             {
-                _types = types;
+                _variables = variables;
             }
 
-            internal InspectionContextImpl Add(string id, Type type)
+            internal InspectionContextImpl Add(string id, Type type, CustomTypeInfo customTypeInfo = default(CustomTypeInfo))
             {
-                return Add(id, type.AssemblyQualifiedName);
+                return Add(id, type.AssemblyQualifiedName, customTypeInfo);
             }
 
-            internal InspectionContextImpl Add(string id, string typeName)
+            internal InspectionContextImpl Add(string id, string typeName, CustomTypeInfo customTypeInfo = default(CustomTypeInfo))
             {
-                // '$' should only be used for well-known ids.
-                Debug.Assert(!id.StartsWith("$", StringComparison.Ordinal) ||
-                    id.Equals("$exception", StringComparison.InvariantCultureIgnoreCase) ||
-                    id.Equals("$stowedexception", StringComparison.InvariantCultureIgnoreCase) ||
-                    id.StartsWith("$ReturnValue", StringComparison.InvariantCultureIgnoreCase));
-
-                return new InspectionContextImpl(_types.Add(id, typeName));
+                var builder = ArrayBuilder<Alias>.GetInstance();
+                builder.AddRange(_variables);
+                builder.Add(new Alias(GetPseudoVariableKind(id), id, id, typeName, customTypeInfo));
+                return new InspectionContextImpl(new ReadOnlyCollection<Alias>(builder.ToArrayAndFree()));
             }
 
             internal override string GetExceptionTypeName()
@@ -63,9 +62,36 @@ namespace Microsoft.CodeAnalysis.ExpressionEvaluator
 
             private string GetType(string id)
             {
-                string type;
-                _types.TryGetValue(id, out type);
-                return type;
+                var alias = _variables.FirstOrDefault(a => a.FullName == id);
+                return alias.Type;
+            }
+
+            private static AliasKind GetPseudoVariableKind(string name)
+            {
+                if (name.StartsWith("$", StringComparison.Ordinal))
+                {
+                    if (name.Equals("$exception", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return AliasKind.Exception;
+                    }
+                    else if (name.Equals("$stowedexception", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return AliasKind.StowedException;
+                    }
+                    else if (name.StartsWith("$returnvalue", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return AliasKind.ReturnValue;
+                    }
+                    else
+                    {
+                        // '$' should only be used for well-known names.
+                        throw ExceptionUtilities.UnexpectedValue(name);
+                    }
+                }
+                else
+                {
+                    return AliasKind.DeclaredLocal;
+                }
             }
         }
     }

@@ -1,6 +1,10 @@
-﻿Imports System
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports System
 Imports System.Collections.Generic
+Imports System.Collections.ObjectModel
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
+Imports Microsoft.VisualStudio.Debugger.Evaluation.ClrCompilation
 Imports Roslyn.Test.Utilities
 Imports Xunit
 Imports Type = Microsoft.VisualStudio.Debugger.Metadata.Type
@@ -10,7 +14,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
     Public Class TypeNameFormatterTests : Inherits VisualBasicResultProviderTestBase
 
         <Fact>
-        Sub Primitives()
+        Public Sub Primitives()
             Assert.Equal("Object", GetType(Object).GetTypeName())
             Assert.Equal("Boolean", GetType(Boolean).GetTypeName())
             Assert.Equal("Char", GetType(Char).GetTypeName())
@@ -30,7 +34,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
         End Sub
 
         <Fact, WorkItem(1016796)>
-        Sub NestedTypes()
+        Public Sub NestedTypes()
             Dim source = "
 Public Class A
     Public Class B
@@ -63,7 +67,7 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub GenericTypes()
+        Public Sub GenericTypes()
             Dim source = "
 Public Class A
     Public Class B
@@ -94,7 +98,7 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub NonGenericInGeneric()
+        Public Sub NonGenericInGeneric()
             Dim source = "
 Public Class A(Of T)
     Public Class B
@@ -109,13 +113,13 @@ End Class
         End Sub
 
         <Fact>
-        Sub PrimitiveNullableTypes()
+        Public Sub PrimitiveNullableTypes()
             Assert.Equal("Integer?", GetType(Integer?).GetTypeName())
             Assert.Equal("Boolean?", GetType(Boolean?).GetTypeName())
         End Sub
 
         <Fact>
-        Sub NullableTypes()
+        Public Sub NullableTypes()
             Dim source = "
 Namespace N
     Public Structure A(Of T)
@@ -140,7 +144,7 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub PrimitiveArrayTypes()
+        Public Sub PrimitiveArrayTypes()
             Assert.Equal("Integer()", GetType(Integer()).GetTypeName())
             Assert.Equal("Integer(,)", GetType(Integer(,)).GetTypeName())
             Assert.Equal("Integer()(,)", GetType(Integer()(,)).GetTypeName())
@@ -148,7 +152,7 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub ArrayTypes()
+        Public Sub ArrayTypes()
             Dim source = "
 Namespace N
     Public Class A(Of T)
@@ -174,7 +178,7 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub CustomBoundsArrayTypes()
+        Public Sub CustomBoundsArrayTypes()
             Dim instance = Array.CreateInstance(GetType(Integer), {1, 2, 3}, {4, 5, 6})
 
             Assert.Equal("Integer(,,)", instance.GetType().GetTypeName())
@@ -182,14 +186,14 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub PrimitivePointerTypes()
+        Public Sub PrimitivePointerTypes()
             Assert.Equal("Integer*", GetType(Integer).MakePointerType().GetTypeName())
             Assert.Equal("Integer**", GetType(Integer).MakePointerType().MakePointerType().GetTypeName())
             Assert.Equal("Integer*()", GetType(Integer).MakePointerType().MakeArrayType().GetTypeName())
         End Sub
 
         <Fact>
-        Sub PointerTypes()
+        Public Sub PointerTypes()
             Dim source = "
 Namespace N
     Public Structure A(Of T)
@@ -212,13 +216,13 @@ End Namespace
         End Sub
 
         <Fact>
-        Sub Void()
+        Public Sub Void()
             Assert.Equal("System.Void", GetType(Void).GetTypeName())
             Assert.Equal("System.Void*", GetType(Void).MakePointerType().GetTypeName())
         End Sub
 
         <Fact>
-        Sub KeywordIdentifiers()
+        Public Sub KeywordIdentifiers()
             Dim source = "
 Public Class [Object]
     Public Class [True]
@@ -260,6 +264,21 @@ End Namespace
             Assert.Equal("[Return].[From](Of [Async])", fromType.GetTypeName(escapeKeywordIdentifiers:=True))
             Assert.Equal("[Return].[From](Of [Return].[False].[Nothing])", constructedYieldType.GetTypeName(escapeKeywordIdentifiers:=True))
             Assert.Equal("[Return].[From](Of [Return].[False].[Nothing]).[Await]", constructedAwaitType.GetTypeName(escapeKeywordIdentifiers:=True))
+        End Sub
+
+        <WorkItem(1087216)>
+        <Fact>
+        Public Sub DynamicAttribute_ValidFlags()
+            Assert.Equal("Object", GetType(Object).GetTypeName({True}))
+            Assert.Equal("Object()", GetType(Object()).GetTypeName({False, True}))
+        End Sub
+
+        <WorkItem(1087216)>
+        <Fact>
+        Public Sub DynamicAttribute_OtherGuid()
+            Dim typeInfo = DkmClrCustomTypeInfo.Create(Guid.NewGuid(), New ReadOnlyCollection(Of Byte)({1}))
+            Assert.Equal("Object", GetType(Object).GetTypeName(typeInfo))
+            Assert.Equal("Object()", GetType(Object()).GetTypeName(typeInfo))
         End Sub
 
     End Class

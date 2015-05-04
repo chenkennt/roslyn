@@ -588,13 +588,13 @@ namespace Microsoft.CodeAnalysis
             var language = projectInfo.Language;
             if (language == null)
             {
-                throw new ArgumentNullException("language");
+                throw new ArgumentNullException(nameof(language));
             }
 
             var displayName = projectInfo.Name;
             if (displayName == null)
             {
-                throw new ArgumentNullException("name");
+                throw new ArgumentNullException(nameof(displayName));
             }
 
             CheckNotContainsProject(projectId);
@@ -615,7 +615,7 @@ namespace Microsoft.CodeAnalysis
             return CreateLinkedFilesMapWithAddedDocuments(projectState, projectState.DocumentIds);
         }
 
-        private ImmutableDictionary<string, ImmutableArray<DocumentId>> CreateLinkedFilesMapWithAddedDocuments(ProjectState projectState, IReadOnlyList<DocumentId> documentIds)
+        private ImmutableDictionary<string, ImmutableArray<DocumentId>> CreateLinkedFilesMapWithAddedDocuments(ProjectState projectState, IEnumerable<DocumentId> documentIds)
         {
             var builder = _linkedFilesMap.ToBuilder();
 
@@ -671,7 +671,7 @@ namespace Microsoft.CodeAnalysis
 
         private ImmutableDictionary<string, ImmutableArray<DocumentId>> CreateLinkedFilesMapWithRemovedDocuments(
             ProjectState projectState,
-            IReadOnlyList<DocumentId> documentIds)
+            IEnumerable<DocumentId> documentIds)
         {
             var builder = _linkedFilesMap.ToBuilder();
 
@@ -1129,7 +1129,10 @@ namespace Microsoft.CodeAnalysis
             var oldProject = this.GetProjectState(state.Id.ProjectId);
             var newProject = oldProject.AddDocument(state);
 
-            return this.ForkProject(newProject, CompilationTranslationAction.AddDocument(state), withDocumentListChange: true);
+            return this.ForkProject(
+                newProject,
+                CompilationTranslationAction.AddDocument(state),
+                newLinkedFilesMap: CreateLinkedFilesMapWithAddedDocuments(newProject, SpecializedCollections.SingletonEnumerable(state.Id)));
         }
 
         /// <summary>
@@ -1174,7 +1177,7 @@ namespace Microsoft.CodeAnalysis
                 documentId,
                 name: name,
                 folders: folders,
-                sourceCodeKind: project.ParseOptions.Kind,
+                sourceCodeKind: GetSourceCodeKind(project),
                 loader: loader,
                 filePath: filePath,
                 isGenerated: isGenerated);
@@ -1186,6 +1189,11 @@ namespace Microsoft.CodeAnalysis
                 _solutionServices);
 
             return this.AddDocument(doc);
+        }
+
+        private static SourceCodeKind GetSourceCodeKind(ProjectState project)
+        {
+            return project.ParseOptions != null ? project.ParseOptions.Kind : SourceCodeKind.Regular;
         }
 
         /// <summary>
@@ -1227,7 +1235,7 @@ namespace Microsoft.CodeAnalysis
                 documentId,
                 name: name,
                 folders: folders,
-                sourceCodeKind: project.ParseOptions.Kind,
+                sourceCodeKind: GetSourceCodeKind(project),
                 loader: loader);
 
             return this.AddDocument(info);
@@ -1313,7 +1321,7 @@ namespace Microsoft.CodeAnalysis
                 documentId,
                 name: name,
                 folders: folders,
-                sourceCodeKind: project.ParseOptions.Kind,
+                sourceCodeKind: GetSourceCodeKind(project),
                 loader: loader,
                 filePath: filePath);
 
@@ -1361,7 +1369,6 @@ namespace Microsoft.CodeAnalysis
         /// <summary>
         /// Creates a new solution instance that no longer includes the specified document.
         /// </summary>
-        [SuppressMessage("Microsoft.StyleCop.CSharp.SpacingRules", "SA1008:OpeningParenthesisMustBeSpacedCorrectly", Justification = "Working around StyleCop bug 7080")]
         public Solution RemoveDocument(DocumentId documentId)
         {
             CheckContainsDocument(documentId);
@@ -1370,7 +1377,10 @@ namespace Microsoft.CodeAnalysis
             var oldDocument = oldProject.GetDocumentState(documentId);
             var newProject = oldProject.RemoveDocument(documentId);
 
-            return this.ForkProject(newProject, CompilationTranslationAction.RemoveDocument(oldDocument), withDocumentListChange: true);
+            return this.ForkProject(
+                newProject,
+                CompilationTranslationAction.RemoveDocument(oldDocument),
+                newLinkedFilesMap: CreateLinkedFilesMapWithRemovedDocuments(oldProject, SpecializedCollections.SingletonEnumerable(documentId)));
         }
 
         /// <summary>
@@ -1732,7 +1742,7 @@ namespace Microsoft.CodeAnalysis
             ProjectState newProjectState,
             CompilationTranslationAction translate = null,
             bool withProjectReferenceChange = false,
-            bool withDocumentListChange = false)
+            ImmutableDictionary<string, ImmutableArray<DocumentId>> newLinkedFilesMap = null)
         {
             // make sure we are getting only known translate actions
             CompilationTranslationAction.CheckKnownActions(translate);
@@ -1742,9 +1752,6 @@ namespace Microsoft.CodeAnalysis
             var newStateMap = _projectIdToProjectStateMap.SetItem(projectId, newProjectState);
             var newDependencyGraph = withProjectReferenceChange ? CreateDependencyGraph(_projectIds, newStateMap) : _dependencyGraph;
             var newTrackerMap = CreateCompilationTrackerMap(projectId, newDependencyGraph);
-            var newLinkedFilesMap = withDocumentListChange
-                ? CreateLinkedFilesMapWithChangedProject(_projectIdToProjectStateMap[projectId], newProjectState)
-                : _linkedFilesMap;
 
             // If we have a tracker for this project, then fork it as well (along with the
             // translation action and store it in the tracker map.
@@ -1761,23 +1768,8 @@ namespace Microsoft.CodeAnalysis
                 idToProjectStateMap: newStateMap,
                 projectIdToTrackerMap: newTrackerMap,
                 dependencyGraph: newDependencyGraph,
-                linkedFilesMap: newLinkedFilesMap,
+                linkedFilesMap: newLinkedFilesMap ?? _linkedFilesMap,
                 lazyLatestProjectVersion: newLatestProjectVersion);
-        }
-
-        private ImmutableDictionary<string, ImmutableArray<DocumentId>> CreateLinkedFilesMapWithChangedProject(ProjectState oldProjectState, ProjectState newProjectState)
-        {
-            var oldDocumentIds = oldProjectState.DocumentIds;
-            var newDocumentIds = newProjectState.DocumentIds;
-            var addedDocumentIds = newDocumentIds.ToImmutableArray().RemoveRange(oldDocumentIds);
-            var removedDocumentIds = oldDocumentIds.ToImmutableArray().RemoveRange(newDocumentIds);
-
-            Debug.Assert(addedDocumentIds.Any() || removedDocumentIds.Any(), "The solution's linkedFilesMap should only be recalculated if its files changed.");
-
-            var linkedFilesMap = _linkedFilesMap;
-            linkedFilesMap = addedDocumentIds.Any() ? CreateLinkedFilesMapWithAddedDocuments(newProjectState, addedDocumentIds) : linkedFilesMap;
-            linkedFilesMap = removedDocumentIds.Any() ? CreateLinkedFilesMapWithRemovedDocuments(oldProjectState, removedDocumentIds) : linkedFilesMap;
-            return linkedFilesMap;
         }
 
         /// <summary>
@@ -1915,11 +1907,11 @@ namespace Microsoft.CodeAnalysis
                     return currentPartialSolution;
                 }
             }
-            catch (Exception e) when(FatalError.ReportUnlessCanceled(e))
+            catch (Exception e) when (FatalError.ReportUnlessCanceled(e))
             {
                 throw ExceptionUtilities.Unreachable;
             }
-            }
+        }
 
         /// <summary>
         /// Creates a new solution instance with all the documents specified updated to have the same specified text.
@@ -1966,14 +1958,22 @@ namespace Microsoft.CodeAnalysis
         }
 
         /// <summary>
-        /// Returns the compilation for the specified project ID.  Can return <code>null</code> when the project
+        /// Returns the compilation for the specified <see cref="ProjectId"/>.  Can return <code>null</code> when the project
         /// does not support compilations.
         /// </summary>
         internal Task<Compilation> GetCompilationAsync(ProjectId projectId, CancellationToken cancellationToken)
         {
-            var project = GetProject(projectId);
+            return GetCompilationAsync(GetProject(projectId), cancellationToken);
+        }
+
+        /// <summary>
+        /// Returns the compilation for the specified <see cref="Project"/>.  Can return <code>null</code> when the project
+        /// does not support compilations.
+        /// </summary>
+        internal Task<Compilation> GetCompilationAsync(Project project, CancellationToken cancellationToken)
+        {
             return project.SupportsCompilation
-                ? this.GetCompilationTracker(projectId).GetCompilationAsync(this, cancellationToken)
+                ? this.GetCompilationTracker(project.Id).GetCompilationAsync(this, cancellationToken)
                 : SpecializedTasks.Default<Compilation>();
         }
 
@@ -2024,11 +2024,11 @@ namespace Microsoft.CodeAnalysis
 
                 return mdref;
             }
-            catch (Exception e) when(FatalError.ReportUnlessCanceled(e))
+            catch (Exception e) when (FatalError.ReportUnlessCanceled(e))
             {
                 throw ExceptionUtilities.Unreachable;
             }
-            }
+        }
 
         /// <summary>
         /// Attempt to get the best readily available compilation for the project. It may be a

@@ -1,4 +1,6 @@
-﻿Imports System.Collections.Immutable
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports System.Collections.Immutable
 Imports System.IO
 Imports System.Reflection
 Imports System.Reflection.Metadata
@@ -6,11 +8,10 @@ Imports System.Reflection.Metadata.Ecma335
 Imports System.Reflection.PortableExecutable
 Imports System.Runtime.InteropServices
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
-Imports Microsoft.CodeAnalysis.Text
 Imports Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.VisualBasic.Symbols
 Imports Microsoft.CodeAnalysis.VisualBasic.Syntax
-Imports Microsoft.VisualStudio.SymReaderInterop
+Imports Microsoft.DiaSymReader
 Imports Roslyn.Test.PdbUtilities
 Imports Roslyn.Test.Utilities
 Imports Xunit
@@ -32,7 +33,7 @@ Class C
 End Class
 "
 
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.ReleaseDll)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.ReleaseDll)
             comp.GetDiagnostics().Where(Function(d) d.Severity > DiagnosticSeverity.Info).Verify()
 
             Dim importStrings = GetImportStrings(comp, "M")
@@ -53,7 +54,7 @@ Class C
 End Class
 "
 
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.ReleaseDll)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.ReleaseDll)
             comp.GetDiagnostics().Where(Function(d) d.Severity > DiagnosticSeverity.Info).Verify()
 
             Dim importStrings1 = GetImportStrings(comp, "M1")
@@ -90,7 +91,7 @@ End Namespace
                 "<xmlns=""http://xml2"">",
                 "<xmlns:F=""http://xml3"">"
             }))
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=options)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=options)
             comp.GetDiagnostics().Where(Function(d) d.Severity > DiagnosticSeverity.Info).Verify()
 
             Dim importStrings = GetImportStrings(comp, "M")
@@ -127,9 +128,9 @@ End Namespace
                         Dim methodToken = metadataReader.GetToken(methodHandle)
 
                         pdbbits.Position = 0
-                        Dim reader = DirectCast(TempPdbReader.CreateUnmanagedReader(pdbbits), ISymUnmanagedReader)
-
-                        Return reader.GetVisualBasicImportStrings(methodToken, methodVersion:=1)
+                        Using reader As New SymReader(pdbbits)
+                            Return reader.GetVisualBasicImportStrings(methodToken, methodVersion:=1)
+                        End Using
                     End Using
                 End Using
             End Using
@@ -148,11 +149,11 @@ End Namespace
             Const importString = "@F:System"
 
             Dim reader As ISymUnmanagedReader = New MockSymUnmanagedReader(
-                            New Dictionary(Of Integer, MethodDebugInfo)() From
+                            New Dictionary(Of Integer, MethodDebugInfoBytes)() From
                             {
-                                {methodToken1, New MethodDebugInfo.Builder({({"@" & methodToken2})}).Build()},
-                                {methodToken2, New MethodDebugInfo.Builder({({"@" & methodToken3})}).Build()},
-                                {methodToken3, New MethodDebugInfo.Builder({({importString})}).Build()}
+                                {methodToken1, New MethodDebugInfoBytes.Builder({({"@" & methodToken2})}).Build()},
+                                {methodToken2, New MethodDebugInfoBytes.Builder({({"@" & methodToken3})}).Build()},
+                                {methodToken3, New MethodDebugInfoBytes.Builder({({importString})}).Build()}
                             }.ToImmutableDictionary())
 
             Dim importStrings = reader.GetVisualBasicImportStrings(methodToken1, methodVersion)
@@ -171,9 +172,9 @@ End Namespace
             Const methodToken1 = &H600057A ' Forwards to itself
 
             Dim reader As ISymUnmanagedReader = New MockSymUnmanagedReader(
-                            New Dictionary(Of Integer, MethodDebugInfo)() From
+                            New Dictionary(Of Integer, MethodDebugInfoBytes)() From
                             {
-                                {methodToken1, New MethodDebugInfo.Builder({({"@" & methodToken1})}).Build()}
+                                {methodToken1, New MethodDebugInfoBytes.Builder({({"@" & methodToken1})}).Build()}
                             }.ToImmutableDictionary())
 
             Dim importStrings = reader.GetVisualBasicImportStrings(methodToken1, methodVersion)
@@ -267,9 +268,9 @@ End Class
             Const importString = "&MyPia"
 
             Dim reader As ISymUnmanagedReader = New MockSymUnmanagedReader(
-                            New Dictionary(Of Integer, MethodDebugInfo)() From
+                            New Dictionary(Of Integer, MethodDebugInfoBytes)() From
                             {
-                                {methodToken, New MethodDebugInfo.Builder({({importString})}).Build()}
+                                {methodToken, New MethodDebugInfoBytes.Builder({({importString})}).Build()}
                             }.ToImmutableDictionary())
 
             Dim importStrings = reader.GetVisualBasicImportStrings(methodToken, methodVersion)
@@ -284,9 +285,9 @@ End Class
             Const importString2 = "$NotSureWhatGoesHere"
 
             Dim reader As ISymUnmanagedReader = New MockSymUnmanagedReader(
-                            New Dictionary(Of Integer, MethodDebugInfo)() From
+                            New Dictionary(Of Integer, MethodDebugInfoBytes)() From
                             {
-                                {methodToken, New MethodDebugInfo.Builder({({importString1, importString2})}).Build()}
+                                {methodToken, New MethodDebugInfoBytes.Builder({({importString1, importString2})}).Build()}
                             }.ToImmutableDictionary())
 
             Dim importStrings = reader.GetVisualBasicImportStrings(methodToken, methodVersion)
@@ -325,7 +326,7 @@ End Namespace
                 "<xmlns=""http://xml2"">",
                 "<xmlns:F=""http://xml3"">"
             }))
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=options)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=options)
             comp.GetDiagnostics().Where(Function(d) d.Severity > DiagnosticSeverity.Info).Verify()
 
             Dim rootNamespace As NamespaceSymbol = Nothing
@@ -375,7 +376,7 @@ End Namespace
 "
 
             For Each rootNamespaceName In {"", Nothing}
-                Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.ReleaseDll.WithRootNamespace(rootNamespaceName))
+                Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.ReleaseDll.WithRootNamespace(rootNamespaceName))
                 comp.GetDiagnostics().Where(Function(d) d.Severity > DiagnosticSeverity.Info).Verify()
 
                 Dim rootNamespace As NamespaceSymbol = Nothing
@@ -432,7 +433,7 @@ End Namespace
                 "<xmlns=""http://xml2"">",
                 "<xmlns:C=""http://xml3"">"
             }))
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=options)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=options)
             comp.GetDiagnostics().Where(Function(d) d.Severity > DiagnosticSeverity.Info).Verify()
 
             Dim rootNamespace As NamespaceSymbol = Nothing
@@ -511,9 +512,9 @@ End Namespace
             xmlNamespaces = Nothing
 
             Const bindingFlags As BindingFlags = bindingFlags.NonPublic Or bindingFlags.Instance
-            Dim typesAndNamespacesField = GetType(ImportedTypesAndNamespacesMembersBinder).GetField("m_importedSymbols", bindingFlags)
+            Dim typesAndNamespacesField = GetType(ImportedTypesAndNamespacesMembersBinder).GetField("_importedSymbols", bindingFlags)
             Assert.NotNull(typesAndNamespacesField)
-            Dim aliasesField = GetType(ImportAliasesBinder).GetField("m_importedAliases", bindingFlags)
+            Dim aliasesField = GetType(ImportAliasesBinder).GetField("_importedAliases", bindingFlags)
             Assert.NotNull(aliasesField)
             Dim xmlNamespacesField = GetType(XmlNamespaceImportsBinder).GetField("_namespaces", bindingFlags)
             Assert.NotNull(xmlNamespacesField)

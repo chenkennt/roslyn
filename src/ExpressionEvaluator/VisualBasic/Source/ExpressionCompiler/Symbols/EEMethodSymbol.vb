@@ -1,4 +1,6 @@
-﻿Imports System.Collections.Immutable
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports System.Collections.Immutable
 Imports System.Reflection
 Imports System.Runtime.InteropServices
 Imports Microsoft.CodeAnalysis.Collections
@@ -463,7 +465,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
             newBody = LocalDeclarationRewriter.Rewrite(_compilation, _container, newBody)
 
             ' Rewrite pseudo-variable references to helper method calls.
-            newBody = DirectCast(PlaceholderLocalRewriter.Rewrite(_compilation, _container, newBody), BoundBlock)
+            newBody = DirectCast(PlaceholderLocalRewriter.Rewrite(_compilation, _container, newBody, diagnostics), BoundBlock)
+            If diagnostics.HasAnyErrors() Then
+                Return newBody
+            End If
 
             ' Create a map from original local to target local.
             Dim localMap = PooledDictionary(Of LocalSymbol, LocalSymbol).GetInstance()
@@ -500,6 +505,9 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
             '     <2> = New <>c__DisplayClass0()
             '     <2>.<1> = <1>
             '     <2>.z = z
+            '
+            ' Note: The above behavior is actually implemented in the LambdaRewriter and
+            '       is triggered by overriding PreserveOriginalLocals to return "True".
 
             ' Create a map from variable name to display class field.
             Dim displayClassVariables = PooledDictionary(Of String, DisplayClassVariable).GetInstance()
@@ -516,10 +524,10 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
             ' Rewrite references to "Me" to refer to this method's "Me" parameter.
             ' Rewrite variables within body to reference existing display classes.
             newBody = DirectCast(CapturedVariableRewriter.Rewrite(
-                    If(Me.SubstitutedSourceMethod.IsShared, Nothing, Me.Parameters(0)),
-                    displayClassVariables.ToImmutableDictionary(),
-                    newBody,
-                    diagnostics), BoundBlock)
+                If(Me.SubstitutedSourceMethod.IsShared, Nothing, Me.Parameters(0)),
+                displayClassVariables.ToImmutableDictionary(),
+                newBody,
+                diagnostics), BoundBlock)
             displayClassVariables.Free()
 
             If diagnostics.HasAnyErrors() Then
@@ -553,7 +561,15 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.ExpressionEvaluator
         End Function
 
         Friend Overrides Function CalculateLocalSyntaxOffset(localPosition As Integer, localTree As SyntaxTree) As Integer
-            Throw ExceptionUtilities.Unreachable
+            Return localPosition
         End Function
+
+        Friend Overrides ReadOnly Property PreserveOriginalLocals As Boolean
+            Get
+                Return True
+            End Get
+        End Property
+
     End Class
+
 End Namespace

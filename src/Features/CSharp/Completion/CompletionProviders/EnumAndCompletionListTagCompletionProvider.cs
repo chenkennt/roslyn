@@ -121,7 +121,21 @@ namespace Microsoft.CodeAnalysis.CSharp.Completion.Providers
 
         private INamedTypeSymbol GetCompletionListType(ITypeSymbol type, INamedTypeSymbol within, Compilation compilation)
         {
-            var documentation = type.GetDocumentationComment();
+            // PERF: None of the SpecialTypes include <completionlist> tags,
+            // so we don't even need to load the documentation.
+            if (type.IsSpecialType())
+            {
+                return null;
+            }
+
+            // PERF: Avoid parsing XML unless the text contains the word "completionlist".
+            string xmlText = type.GetDocumentationCommentXml();
+            if (xmlText == null || !xmlText.Contains(DocumentationCommentXmlNames.CompletionListElementName))
+            {
+                return null;
+            }
+
+            var documentation = Shared.Utilities.DocumentationComment.FromXmlFragment(xmlText);
 
             var completionListType = documentation.CompletionListCref != null
                 ? DocumentationCommentId.GetSymbolsForDeclarationId(documentation.CompletionListCref, compilation).OfType<INamedTypeSymbol>().FirstOrDefault()

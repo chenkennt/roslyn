@@ -16,21 +16,26 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
     public static class CompilationExtensions
     {
         internal static ImmutableArray<byte> EmitToArray(
-            this Compilation compilation, 
+            this Compilation compilation,
             EmitOptions options = null,
-            CompilationTestData testData = null, 
+            CompilationTestData testData = null,
             DiagnosticDescription[] expectedWarnings = null)
         {
             var stream = new MemoryStream();
+            MemoryStream pdbStream = 
+                (compilation.Options.OptimizationLevel == OptimizationLevel.Debug) && !CLRHelpers.IsRunningOnMono() 
+                ? new MemoryStream() 
+                : null;
 
             var emitResult = compilation.Emit(
                 peStream: stream,
-                pdbStream: null,
+                pdbStream: pdbStream,
                 xmlDocumentationStream: null,
                 win32Resources: null,
                 manifestResources: null,
                 options: options,
                 testData: testData,
+                getHostDiagnostics: null,
                 cancellationToken: default(CancellationToken));
 
             Assert.True(emitResult.Success, "Diagnostics:\r\n" + string.Join("\r\n, ", emitResult.Diagnostics.Select(d => d.ToString())));
@@ -59,10 +64,10 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
         }
 
         public static MetadataReference EmitToImageReference(
-            this Compilation comp, 
+            this Compilation comp,
             EmitOptions options = null,
             bool embedInteropTypes = false,
-            ImmutableArray<string> aliases = default(ImmutableArray<string>), 
+            ImmutableArray<string> aliases = default(ImmutableArray<string>),
             DiagnosticDescription[] expectedWarnings = null)
         {
             var image = comp.EmitToArray(options, expectedWarnings: expectedWarnings);

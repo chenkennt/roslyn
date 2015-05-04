@@ -126,7 +126,7 @@ Namespace Microsoft.CodeAnalysis.Editor.VisualBasic.LineCommit
             Dim oldCaretPoint = args.TextView.GetCaretPoint(args.SubjectBuffer)
 
             ' When we call nextHandler(), it's possible that some other feature might try to move the caret
-            ' or something similar. We want this "outer" commit to be the real one, so start supressing any
+            ' or something similar. We want this "outer" commit to be the real one, so start suppressing any
             ' re-entrant commits.
             Dim suppressionHandle = bufferManager.BeginSuppressingCommits()
 
@@ -246,7 +246,7 @@ Namespace Microsoft.CodeAnalysis.Editor.VisualBasic.LineCommit
                 ' Did we paste content that changed the number of lines?
                 If oldVersion.Changes IsNot Nothing AndAlso oldVersion.Changes.IncludesLineChanges Then
                     Try
-                        _bufferManagerFactory.CreateForBuffer(args.SubjectBuffer).CommitDirty(isExplicitFormat:=True, cancellationToken:=waitContext.CancellationToken)
+                        _bufferManagerFactory.CreateForBuffer(args.SubjectBuffer).CommitDirty(isExplicitFormat:=False, cancellationToken:=waitContext.CancellationToken)
                     Catch ex As OperationCanceledException
                         ' If the commit was cancelled, we still want the paste to go through
                     End Try
@@ -268,7 +268,7 @@ Namespace Microsoft.CodeAnalysis.Editor.VisualBasic.LineCommit
                     allowCancel:=True,
                     action:=Sub(waitContext)
                                 Using transaction = _textUndoHistoryRegistry.GetHistory(args.TextView.TextBuffer).CreateTransaction(VBEditorResources.FormatOnSave)
-                                    _bufferManagerFactory.CreateForBuffer(args.SubjectBuffer).CommitDirty(isExplicitFormat:=True, cancellationToken:=waitContext.CancellationToken)
+                                    _bufferManagerFactory.CreateForBuffer(args.SubjectBuffer).CommitDirty(isExplicitFormat:=False, cancellationToken:=waitContext.CancellationToken)
 
                                     ' We should only create the transaction if anything actually happened
                                     If transaction.UndoPrimitives.Any() Then

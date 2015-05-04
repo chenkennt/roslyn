@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis.CodeGeneration;
 using Microsoft.CodeAnalysis.Editor;
 using Microsoft.CodeAnalysis.Editor.Shared.Extensions;
 using Microsoft.CodeAnalysis.Editor.Shared.Utilities;
+using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Formatting.Rules;
 using Microsoft.CodeAnalysis.Host;
@@ -645,6 +646,12 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.CodeModel
         public abstract SyntaxNode CreateImportNode(string name, string alias = null);
 
         public abstract string GetParameterName(SyntaxNode node);
+
+        public virtual string GetParameterFullName(SyntaxNode node)
+        {
+            return GetParameterName(node);
+        }
+
         public abstract EnvDTE80.vsCMParameterKind GetParameterKind(SyntaxNode node);
         public abstract SyntaxNode SetParameterKind(SyntaxNode node, EnvDTE80.vsCMParameterKind kind);
         public abstract SyntaxNode CreateParameterNode(string name, string type);
@@ -670,6 +677,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.CodeModel
 
         public abstract string GetDocComment(SyntaxNode node);
         public abstract SyntaxNode SetDocComment(SyntaxNode node, string value);
+
+        public abstract EnvDTE.vsCMFunction GetFunctionKind(IMethodSymbol symbol);
 
         public abstract EnvDTE80.vsCMInheritanceKind GetInheritanceKind(SyntaxNode typeNode, INamedTypeSymbol typeSymbol);
         public abstract SyntaxNode SetInheritanceKind(SyntaxNode typeNode, EnvDTE80.vsCMInheritanceKind kind);
@@ -1097,10 +1106,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.CodeModel
             // Annotate the member we're inserting so we can get back to it.
             var annotation = new SyntaxAnnotation();
 
-            // REVIEW: how simplifier ever worked for code model? nobody added simplifier.Annotation before?
-            var annotatedNode = node.WithAdditionalAnnotations(annotation, Simplifier.Annotation);
+            var gen = SyntaxGenerator.GetGenerator(document);
+            node = node.WithAdditionalAnnotations(annotation);
 
-            var newContainerNode = insertNodeIntoContainer(insertionIndex, annotatedNode, containerNode);
+            if (gen.GetDeclarationKind(node) != DeclarationKind.NamespaceImport)
+            {
+                // REVIEW: how simplifier ever worked for code model? nobody added simplifier.Annotation before?
+                node = node.WithAdditionalAnnotations(Simplifier.Annotation);
+            }
+
+            var newContainerNode = insertNodeIntoContainer(insertionIndex, node, containerNode);
             var newRoot = root.ReplaceNode(containerNode, newContainerNode);
             document = document.WithSyntaxRoot(newRoot);
 

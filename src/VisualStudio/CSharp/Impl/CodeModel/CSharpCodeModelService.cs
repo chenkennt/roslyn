@@ -138,6 +138,7 @@ namespace Microsoft.VisualStudio.LanguageServices.CSharp.CodeModel
                 case SyntaxKind.DestructorDeclaration:
                 case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.OperatorDeclaration:
+                case SyntaxKind.ConversionOperatorDeclaration:
                 case SyntaxKind.GetAccessorDeclaration:
                 case SyntaxKind.SetAccessorDeclaration:
                 case SyntaxKind.AddAccessorDeclaration:
@@ -322,6 +323,10 @@ namespace Microsoft.VisualStudio.LanguageServices.CSharp.CodeModel
                      parent is VariableDeclarationSyntax)
             {
                 return GetAttributeNodes(parent.Parent);
+            }
+            else if (parent is AccessorDeclarationSyntax)
+            {
+                return GetAttributeNodes(((AccessorDeclarationSyntax)parent).AttributeLists);
             }
 
             return SpecializedCollections.EmptyEnumerable<SyntaxNode>();
@@ -577,6 +582,7 @@ namespace Microsoft.VisualStudio.LanguageServices.CSharp.CodeModel
                 case SyntaxKind.ConstructorDeclaration:
                 case SyntaxKind.DestructorDeclaration:
                 case SyntaxKind.OperatorDeclaration:
+                case SyntaxKind.ConversionOperatorDeclaration:
                     return (EnvDTE.CodeElement)CodeFunction.CreateUnknown(state, fileCodeModel, node.RawKind, GetName(node));
 
                 case SyntaxKind.PropertyDeclaration:
@@ -1309,7 +1315,7 @@ namespace Microsoft.VisualStudio.LanguageServices.CSharp.CodeModel
             for (int i = 1; i < lines.Length; i++)
             {
                 var line = lines[i].TrimStart();
-                if (line.StartsWith("///"))
+                if (line.StartsWith("///", StringComparison.Ordinal))
                 {
                     line = line.Substring(3);
                 }
@@ -2121,6 +2127,38 @@ namespace Microsoft.VisualStudio.LanguageServices.CSharp.CodeModel
             }
 
             return type.UpdateModifiers(flags);
+        }
+
+        public override EnvDTE.vsCMFunction GetFunctionKind(IMethodSymbol symbol)
+        {
+            switch (symbol.MethodKind)
+            {
+                case MethodKind.Ordinary:
+                case MethodKind.ExplicitInterfaceImplementation:
+                    return EnvDTE.vsCMFunction.vsCMFunctionFunction;
+
+                case MethodKind.Constructor:
+                case MethodKind.StaticConstructor:
+                    return EnvDTE.vsCMFunction.vsCMFunctionConstructor;
+
+                case MethodKind.Destructor:
+                    return EnvDTE.vsCMFunction.vsCMFunctionDestructor;
+
+                case MethodKind.UserDefinedOperator:
+                case MethodKind.Conversion:
+                    return EnvDTE.vsCMFunction.vsCMFunctionOperator;
+
+                case MethodKind.PropertyGet:
+                case MethodKind.EventRemove:
+                    return EnvDTE.vsCMFunction.vsCMFunctionPropertyGet;
+
+                case MethodKind.PropertySet:
+                case MethodKind.EventAdd:
+                    return EnvDTE.vsCMFunction.vsCMFunctionPropertySet;
+
+                default:
+                    throw Exceptions.ThrowEUnexpected();
+            }
         }
 
         public override EnvDTE80.vsCMInheritanceKind GetInheritanceKind(SyntaxNode typeNode, INamedTypeSymbol typeSymbol)
@@ -3630,7 +3668,7 @@ namespace Microsoft.VisualStudio.LanguageServices.CSharp.CodeModel
 
         public override string[] GetTypeExtenderNames()
         {
-            return new string[0];
+            return Array.Empty<string>();
         }
 
         public override object GetTypeExtender(string name, AbstractCodeType symbol)

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,8 +17,8 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
 {
     public static class CLRHelpers
     {
-        private static readonly Guid ClsIdClrRuntimeHost = new Guid("90F1A06E-7712-4762-86B5-7A5EBA6BDB02");
-        private static readonly Guid ClsIdCorMetaDataDispenser = new Guid("E5CB7A31-7512-11d2-89CE-0080C792E5D8");
+        private static readonly Guid s_clsIdClrRuntimeHost = new Guid("90F1A06E-7712-4762-86B5-7A5EBA6BDB02");
+        private static readonly Guid s_clsIdCorMetaDataDispenser = new Guid("E5CB7A31-7512-11d2-89CE-0080C792E5D8");
 
         public static event ResolveEventHandler ReflectionOnlyAssemblyResolve;
 
@@ -47,6 +48,20 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
             return null;
         }
 
+        public static bool IsRunningOnMono()
+        {
+            return Type.GetType ("Mono.Runtime") != null;
+        }
+
+        public static object GetRuntimeInterfaceAsObject(Guid clsid, Guid riid)
+        {
+            // This API isn't available on Mono hence we must use reflection to access it.  
+            Debug.Assert(!IsRunningOnMono());
+
+            var getRuntimeInterfaceAsObject = typeof(RuntimeEnvironment).GetMethod("GetRuntimeInterfaceAsObject", BindingFlags.Public | BindingFlags.Static);
+            return getRuntimeInterfaceAsObject.Invoke(null, new object[] { clsid, riid });
+        }
+
         /// <summary>
         /// Verifies the specified image. Subscribe to <see cref="ReflectionOnlyAssemblyResolve"/> to provide a loader for dependent assemblies.
         /// </summary>
@@ -64,21 +79,28 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
             return PeVerify(File.ReadAllBytes(filePath), AppDomain.CurrentDomain.Id, filePath);
         }
 
-        private static readonly object Guard = new object();
+        private static readonly object s_guard = new object();
 
         private static string[] PeVerify(byte[] peImage, int domainId, string assemblyPath)
         {
-            lock (Guard)
+            if (IsRunningOnMono())
+            {
+                // PEverify is currently unsupported on Mono hence return an empty 
+                // set of messages
+                return new string[] { };
+            }
+
+            lock (s_guard)
             {
                 GCHandle pinned = GCHandle.Alloc(peImage, GCHandleType.Pinned);
                 try
                 {
                     IntPtr buffer = pinned.AddrOfPinnedObject();
 
-                    ICLRValidator validator = (ICLRValidator)RuntimeEnvironment.GetRuntimeInterfaceAsObject(ClsIdClrRuntimeHost, typeof(ICLRRuntimeHost).GUID);
+                    ICLRValidator validator = (ICLRValidator)GetRuntimeInterfaceAsObject(s_clsIdClrRuntimeHost, typeof(ICLRRuntimeHost).GUID);
                     ValidationErrorHandler errorHandler = new ValidationErrorHandler(validator);
 
-                    IMetaDataDispenser dispenser = (IMetaDataDispenser)RuntimeEnvironment.GetRuntimeInterfaceAsObject(ClsIdCorMetaDataDispenser, typeof(IMetaDataDispenser).GUID);
+                    IMetaDataDispenser dispenser = (IMetaDataDispenser)GetRuntimeInterfaceAsObject(s_clsIdCorMetaDataDispenser, typeof(IMetaDataDispenser).GUID);
 
                     // the buffer needs to be pinned during validation
                     Guid riid = typeof(IMetaDataImport).GUID;
@@ -110,14 +132,14 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
 
         private class ValidationErrorHandler : IVEHandler
         {
-            private readonly ICLRValidator m_validator;
-            private readonly List<string> m_output;
+            private readonly ICLRValidator _validator;
+            private readonly List<string> _output;
             private const int MessageLength = 256;
 
             public ValidationErrorHandler(ICLRValidator validator)
             {
-                m_validator = validator;
-                m_output = new List<string>();
+                _validator = validator;
+                _output = new List<string>();
             }
 
             public void SetReporterFtn(long lFnPtr)
@@ -143,29 +165,29 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
                 }
                 else
                 {
-                    m_validator.FormatEventInfo(VECode, Context, sb, (uint)MessageLength - 1, psa);
+                    _validator.FormatEventInfo(VECode, Context, sb, (uint)MessageLength - 1, psa);
                     message = sb.ToString();
                 }
 
                 // retail version of peverify.exe filters out CLS warnings...
                 if (!message.Contains("[CLS]"))
                 {
-                    m_output.Add(message);
+                    _output.Add(message);
                 }
             }
 
             public string[] GetOutput()
             {
-                return m_output.ToArray();
+                return _output.ToArray();
             }
 
-            private static readonly string ResourceFilePath = Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "mscorrc.dll");
+            private static readonly string s_resourceFilePath = Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "mscorrc.dll");
             private const uint LOAD_LIBRARY_AS_DATAFILE = 0x00000002;
-            private static readonly IntPtr hMod = LoadLibraryEx(ResourceFilePath, IntPtr.Zero, LOAD_LIBRARY_AS_DATAFILE);
+            private static readonly IntPtr s_hMod = LoadLibraryEx(s_resourceFilePath, IntPtr.Zero, LOAD_LIBRARY_AS_DATAFILE);
 
             private static void GetErrorResourceString(int code, StringBuilder message)
             {
-                LoadString(hMod, (uint)(code & 0x0000FFFF), message, MessageLength - 1);
+                LoadString(s_hMod, (uint)(code & 0x0000FFFF), message, MessageLength - 1);
             }
 
             [DllImport("kernel32.dll", SetLastError = true)]
@@ -233,7 +255,7 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
         [ComImport, Guid("856CA1B2-7DAB-11D3-ACEC-00C04F86C309"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown), TypeIdentifier]
         public interface IVEHandler
         {
-            void VEHandler([In, MarshalAs(UnmanagedType.Error)] int VECode,[In] tag_VerError Context,[In, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] Array psa);
+            void VEHandler([In, MarshalAs(UnmanagedType.Error)] int VECode, [In] tag_VerError Context, [In, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] Array psa);
             void SetReporterFtn([In] long lFnPtr);
         }
 
@@ -268,7 +290,7 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
         [ComImport, Guid("4709C9C6-81FF-11D3-9FC7-00C04F79A0A3"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown), TypeIdentifier]
         public interface IMetaDataValidate
         {
-            void ValidatorInit([In] CorValidatorModuleType dwModuleType,[In, MarshalAs(UnmanagedType.IUnknown)] object pUnk);
+            void ValidatorInit([In] CorValidatorModuleType dwModuleType, [In, MarshalAs(UnmanagedType.IUnknown)] object pUnk);
             void ValidateMetaData();
         }
 

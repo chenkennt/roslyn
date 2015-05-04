@@ -28,7 +28,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
     Partial Friend Class VisualBasicCodeModelService
         Inherits AbstractCodeModelService
 
-        Private ReadOnly commitBufferManagerFactory As CommitBufferManagerFactory
+        Private ReadOnly _commitBufferManagerFactory As CommitBufferManagerFactory
 
         Friend Sub New(provider As HostLanguageServices, editorOptionsFactoryService As IEditorOptionsFactoryService, refactorNotifyServices As IEnumerable(Of IRefactorNotifyService), commitBufferManagerFactory As CommitBufferManagerFactory)
             MyBase.New(
@@ -38,35 +38,35 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 New LineAdjustmentFormattingRule(),
                 New EndRegionFormattingRule())
 
-            Me.commitBufferManagerFactory = commitBufferManagerFactory
+            Me._commitBufferManagerFactory = commitBufferManagerFactory
         End Sub
 
-        Private Shared ReadOnly codeTypeRefAsFullNameFormat As SymbolDisplayFormat =
+        Private Shared ReadOnly s_codeTypeRefAsFullNameFormat As SymbolDisplayFormat =
             New SymbolDisplayFormat(
                 typeQualificationStyle:=SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                 genericsOptions:=SymbolDisplayGenericsOptions.IncludeTypeParameters,
                 miscellaneousOptions:=SymbolDisplayMiscellaneousOptions.ExpandNullable)
 
-        Private Shared ReadOnly codeTypeRefAsStringFormat As SymbolDisplayFormat =
+        Private Shared ReadOnly s_codeTypeRefAsStringFormat As SymbolDisplayFormat =
             New SymbolDisplayFormat(
                 typeQualificationStyle:=SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                 genericsOptions:=SymbolDisplayGenericsOptions.IncludeTypeParameters,
                 miscellaneousOptions:=SymbolDisplayMiscellaneousOptions.UseSpecialTypes)
 
-        Private Shared ReadOnly fullNameFormat As SymbolDisplayFormat =
+        Private Shared ReadOnly s_fullNameFormat As SymbolDisplayFormat =
             New SymbolDisplayFormat(
                 typeQualificationStyle:=SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                 genericsOptions:=SymbolDisplayGenericsOptions.IncludeTypeParameters,
                 memberOptions:=SymbolDisplayMemberOptions.IncludeContainingType,
                 miscellaneousOptions:=SymbolDisplayMiscellaneousOptions.ExpandNullable)
 
-        Private Shared ReadOnly setTypeFormat As SymbolDisplayFormat =
+        Private Shared ReadOnly s_setTypeFormat As SymbolDisplayFormat =
             New SymbolDisplayFormat(
                 typeQualificationStyle:=SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                 genericsOptions:=SymbolDisplayGenericsOptions.IncludeTypeParameters,
                 miscellaneousOptions:=SymbolDisplayMiscellaneousOptions.ExpandNullable Or SymbolDisplayMiscellaneousOptions.UseSpecialTypes)
 
-        Private Shared ReadOnly raiseEventSignatureFormat As SymbolDisplayFormat =
+        Private Shared ReadOnly s_raiseEventSignatureFormat As SymbolDisplayFormat =
             New SymbolDisplayFormat(
                 typeQualificationStyle:=SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                 genericsOptions:=SymbolDisplayGenericsOptions.IncludeTypeParameters,
@@ -78,6 +78,8 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Case SyntaxKind.Attribute,
                      SyntaxKind.ClassBlock,
                      SyntaxKind.ConstructorBlock,
+                     SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement,
                      SyntaxKind.DelegateFunctionStatement,
                      SyntaxKind.DelegateSubStatement,
                      SyntaxKind.EnumBlock,
@@ -121,6 +123,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Case SyntaxKind.SubStatement,
                      SyntaxKind.FunctionStatement
                     Return node.FirstAncestorOrSelf(Of MethodBlockSyntax)() Is Nothing
+
 
                 Case Else
                     Return False
@@ -179,6 +182,12 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                      SyntaxKind.RemoveHandlerAccessorBlock,
                      SyntaxKind.RaiseEventAccessorBlock
                     If scope = EnvDTE.vsCMElement.vsCMElementFunction Then
+                        Return True
+                    End If
+
+                Case SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement
+                    If scope = EnvDTE.vsCMElement.vsCMElementDeclareDecl Then
                         Return True
                     End If
 
@@ -347,10 +356,22 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Return GetAttributeNodes(DirectCast(node, TypeBlockSyntax).BlockStatement.AttributeLists)
             ElseIf TypeOf node Is EnumBlockSyntax Then
                 Return GetAttributeNodes(DirectCast(node, EnumBlockSyntax).EnumStatement.AttributeLists)
+            ElseIf TypeOf node Is DelegateStatementSyntax Then
+                Return GetAttributeNodes(DirectCast(node, DelegateStatementSyntax).AttributeLists)
+            ElseIf TypeOf node Is DeclareStatementSyntax Then
+                Return GetAttributeNodes(DirectCast(node, DeclareStatementSyntax).AttributeLists)
+            ElseIf TypeOf node Is MethodStatementSyntax Then
+                Return GetAttributeNodes(DirectCast(node, MethodStatementSyntax).AttributeLists)
             ElseIf TypeOf node Is MethodBlockBaseSyntax Then
                 Return GetAttributeNodes(DirectCast(node, MethodBlockBaseSyntax).BlockStatement.AttributeLists)
             ElseIf TypeOf node Is PropertyBlockSyntax Then
                 Return GetAttributeNodes(DirectCast(node, PropertyBlockSyntax).PropertyStatement.AttributeLists)
+            ElseIf TypeOf node Is PropertyStatementSyntax Then
+                Return GetAttributeNodes(DirectCast(node, PropertyStatementSyntax).AttributeLists)
+            ElseIf TypeOf node Is EventBlockSyntax Then
+                Return GetAttributeNodes(DirectCast(node, EventBlockSyntax).EventStatement.AttributeLists)
+            ElseIf TypeOf node Is EventStatementSyntax Then
+                Return GetAttributeNodes(DirectCast(node, EventStatementSyntax).AttributeLists)
             ElseIf TypeOf node Is FieldDeclarationSyntax Then
                 Return GetAttributeNodes(DirectCast(node, FieldDeclarationSyntax).AttributeLists)
             ElseIf TypeOf node Is ParameterSyntax Then
@@ -552,6 +573,9 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                      SyntaxKind.SubStatement,
                      SyntaxKind.FunctionStatement
                     Return CType(CodeFunctionWithEventHandler.Create(state, fileCodeModel, nodeKey, node.Kind), EnvDTE.CodeElement)
+                Case SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement
+                    Return CType(CodeFunctionDeclareDecl.Create(state, fileCodeModel, nodeKey, node.Kind), EnvDTE.CodeElement)
                 Case SyntaxKind.PropertyBlock,
                      SyntaxKind.PropertyStatement
                     Return CType(CodeProperty.Create(state, fileCodeModel, nodeKey, node.Kind), EnvDTE.CodeElement)
@@ -589,6 +613,9 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                      SyntaxKind.SubStatement,
                      SyntaxKind.FunctionStatement
                     Return CType(CodeFunctionWithEventHandler.CreateUnknown(state, fileCodeModel, node.Kind, GetName(node)), EnvDTE.CodeElement)
+                Case SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement
+                    Return CType(CodeFunctionDeclareDecl.CreateUnknown(state, fileCodeModel, node.Kind, GetName(node)), EnvDTE.CodeElement)
                 Case SyntaxKind.PropertyBlock,
                      SyntaxKind.PropertyStatement
                     Return CType(CodeProperty.CreateUnknown(state, fileCodeModel, node.Kind, GetName(node)), EnvDTE.CodeElement)
@@ -750,11 +777,11 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
         End Function
 
         Public Overrides Function GetAsFullNameForCodeTypeRef(typeSymbol As ITypeSymbol) As String
-            Return typeSymbol.ToDisplayString(codeTypeRefAsFullNameFormat)
+            Return typeSymbol.ToDisplayString(s_codeTypeRefAsFullNameFormat)
         End Function
 
         Public Overrides Function GetAsStringForCodeTypeRef(typeSymbol As ITypeSymbol) As String
-            Return typeSymbol.ToDisplayString(codeTypeRefAsStringFormat)
+            Return typeSymbol.ToDisplayString(s_codeTypeRefAsStringFormat)
         End Function
 
         Public Overrides Function IsParameterNode(node As SyntaxNode) As Boolean
@@ -779,7 +806,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
         End Function
 
         Public Overrides Function GetUnescapedName(name As String) As String
-            Return If(name IsNot Nothing AndAlso name.Length > 2 AndAlso name.StartsWith("[") AndAlso name.EndsWith("]"),
+            Return If(name IsNot Nothing AndAlso name.Length > 2 AndAlso name.StartsWith("[", StringComparison.Ordinal) AndAlso name.EndsWith("]", StringComparison.Ordinal),
                       name.Substring(1, name.Length - 2),
                       name)
         End Function
@@ -810,7 +837,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
         Public Overrides Function GetName(node As SyntaxNode) As String
             If node Is Nothing Then
-                Throw New ArgumentNullException("node")
+                Throw New ArgumentNullException(NameOf(node))
             End If
 
             Debug.Assert(TypeOf node Is SyntaxNode)
@@ -838,6 +865,9 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Case SyntaxKind.SubStatement,
                      SyntaxKind.FunctionStatement
                     Return DirectCast(node, MethodStatementSyntax).Identifier.ToString()
+                Case SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement
+                    Return DirectCast(node, DeclareStatementSyntax).Identifier.ToString()
                 Case SyntaxKind.ConstructorBlock
                     Dim methodBlock = DirectCast(node, ConstructorBlockSyntax)
                     Return methodBlock.SubNewStatement.NewKeyword.ToString()
@@ -882,7 +912,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
         Public Overrides Function SetName(node As SyntaxNode, name As String) As SyntaxNode
             If node Is Nothing Then
-                Throw New ArgumentNullException("node")
+                Throw New ArgumentNullException(NameOf(node))
             End If
 
             Dim identifier As SyntaxToken = SyntaxFactory.Identifier(name)
@@ -909,6 +939,9 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                      SyntaxKind.FunctionStatement,
                      SyntaxKind.SubNewStatement
                     Return DirectCast(node, MethodStatementSyntax).WithIdentifier(identifier)
+                Case SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareFunctionStatement
+                    Return DirectCast(node, DeclareStatementSyntax).WithIdentifier(identifier)
                 Case SyntaxKind.PropertyStatement
                     Return DirectCast(node, PropertyStatementSyntax).WithIdentifier(identifier)
                 Case SyntaxKind.EventStatement
@@ -926,7 +959,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
         Public Overrides Function GetNodeWithName(node As SyntaxNode) As SyntaxNode
             If node Is Nothing Then
-                Throw New ArgumentNullException("node")
+                Throw New ArgumentNullException(NameOf(node))
             End If
 
             If node.Kind = SyntaxKind.OperatorBlock Then
@@ -965,7 +998,9 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
                     Return If(simpleArgument.IsNamed, simpleArgument.NameColonEquals.Name, node)
                 Case SyntaxKind.SubStatement,
-                     SyntaxKind.FunctionStatement
+                     SyntaxKind.FunctionStatement,
+                     SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement
                     Return node
                 Case SyntaxKind.EventStatement
                     Return node
@@ -992,7 +1027,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Throw Exceptions.ThrowEFail()
             End If
 
-            Return symbol.ToDisplayString(fullNameFormat)
+            Return symbol.ToDisplayString(s_fullNameFormat)
         End Function
 
         Public Overrides Function IsAccessorNode(node As SyntaxNode) As Boolean
@@ -1043,18 +1078,25 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
             End Select
         End Function
 
-        Public Overrides Function TryGetAccessorNode(parentNode As SyntaxNode, kind As MethodKind, ByRef accessorNode As SyntaxNode) As Boolean
-            Dim propertyBlock = TryCast(parentNode, PropertyBlockSyntax)
-            If propertyBlock IsNot Nothing Then
-                Dim accessorKind = GetAccessorKind(kind)
+        Private Shared Function GetAccessors(node As SyntaxNode) As SyntaxList(Of AccessorBlockSyntax)
+            Select Case node.Kind()
+                Case SyntaxKind.PropertyBlock
+                    Return DirectCast(node, PropertyBlockSyntax).Accessors
+                Case SyntaxKind.EventBlock
+                    Return DirectCast(node, EventBlockSyntax).Accessors
+                Case Else
+                    Return Nothing
+            End Select
+        End Function
 
-                For Each accessor In propertyBlock.Accessors
-                    If accessor.Kind = accessorKind Then
-                        accessorNode = accessor
-                        Return True
-                    End If
-                Next
-            End If
+        Public Overrides Function TryGetAccessorNode(parentNode As SyntaxNode, kind As MethodKind, ByRef accessorNode As SyntaxNode) As Boolean
+            Dim accessorKind = GetAccessorKind(kind)
+            For Each accessor In GetAccessors(parentNode)
+                If accessor.Kind = accessorKind Then
+                    accessorNode = accessor
+                    Return True
+                End If
+            Next
 
             accessorNode = Nothing
             Return False
@@ -1062,7 +1104,8 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
         Public Overrides Function TryGetParameterNode(parentNode As SyntaxNode, name As String, ByRef parameterNode As SyntaxNode) As Boolean
             For Each parameter As ParameterSyntax In GetParameterNodes(parentNode)
-                If parameter.Identifier.ToString() = name Then
+                Dim parameterName = GetNameFromParameter(parameter)
+                If String.Equals(parameterName, name, StringComparison.OrdinalIgnoreCase) Then
                     parameterNode = parameter
                     Return True
                 End If
@@ -1815,7 +1858,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
             End Select
         End Function
 
-        Overrides Sub GetImportParentAndName(node As SyntaxNode, ByRef parentNode As SyntaxNode, ByRef name As String)
+        Public Overrides Sub GetImportParentAndName(node As SyntaxNode, ByRef parentNode As SyntaxNode, ByRef name As String)
             parentNode = Nothing
 
             Select Case node.Kind
@@ -1827,6 +1870,22 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
         End Sub
 
         Public Overrides Function GetParameterName(node As SyntaxNode) As String
+            Dim parameter = TryCast(node, ParameterSyntax)
+            If parameter IsNot Nothing Then
+                Return GetNameFromParameter(parameter)
+            End If
+
+            Throw New InvalidOperationException()
+        End Function
+
+        Private Function GetNameFromParameter(parameter As ParameterSyntax) As String
+            Dim parameterName As String = parameter.Identifier.Identifier.ToString()
+            Return If(Not String.IsNullOrEmpty(parameterName) AndAlso SyntaxFactsService.IsTypeCharacter(parameterName.Last()),
+                parameterName.Substring(0, parameterName.Length - 1),
+                parameterName)
+        End Function
+
+        Public Overrides Function GetParameterFullName(node As SyntaxNode) As String
             Dim parameter = TryCast(node, ParameterSyntax)
             If parameter IsNot Nothing Then
                 Return parameter.Identifier.ToString()
@@ -2065,7 +2124,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
             Dim textBuilder = New StringBuilder()
             For Each trivia In commentList
-                Debug.Assert(trivia.ToString().StartsWith("'"))
+                Debug.Assert(trivia.ToString().StartsWith("'", StringComparison.Ordinal))
                 Dim commentText = trivia.ToString().Substring(1)
 
                 textBuilder.AppendLine(commentText)
@@ -2318,7 +2377,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
 
             For i = 1 To lines.Length - 1
                 Dim line = lines(i).TrimStart()
-                If line.StartsWith("'''") Then
+                If line.StartsWith("'''", StringComparison.Ordinal) Then
                     lines(i) = line.Substring(3)
                 End If
             Next
@@ -2363,6 +2422,39 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
             End If
 
             Return member.WithLeadingTrivia(leadingTriviaList)
+        End Function
+
+        Public Overrides Function GetFunctionKind(symbol As IMethodSymbol) As EnvDTE.vsCMFunction
+            If symbol.IsOverride AndAlso symbol.Name = "Finalize" Then
+                Return EnvDTE.vsCMFunction.vsCMFunctionDestructor
+            End If
+
+            Select Case symbol.MethodKind
+                Case MethodKind.Ordinary,
+                     MethodKind.DeclareMethod
+                    Return If(symbol.ReturnsVoid, EnvDTE.vsCMFunction.vsCMFunctionSub, EnvDTE.vsCMFunction.vsCMFunctionFunction)
+
+                Case MethodKind.Constructor,
+                     MethodKind.StaticConstructor
+                    Return EnvDTE.vsCMFunction.vsCMFunctionConstructor
+
+                Case MethodKind.UserDefinedOperator
+                    Return EnvDTE.vsCMFunction.vsCMFunctionOperator
+
+                Case MethodKind.PropertyGet
+                    Return EnvDTE.vsCMFunction.vsCMFunctionPropertyGet
+                Case MethodKind.PropertySet
+                    Return EnvDTE.vsCMFunction.vsCMFunctionPropertySet
+
+                Case MethodKind.EventAdd
+                    Return CType(EnvDTE80.vsCMFunction2.vsCMFunctionAddHandler, EnvDTE.vsCMFunction)
+                Case MethodKind.EventRemove
+                    Return CType(EnvDTE80.vsCMFunction2.vsCMFunctionRemoveHandler, EnvDTE.vsCMFunction)
+                Case MethodKind.EventRaise
+                    Return CType(EnvDTE80.vsCMFunction2.vsCMFunctionRaiseEvent, EnvDTE.vsCMFunction)
+            End Select
+
+            Throw Exceptions.ThrowEUnexpected()
         End Function
 
         Public Overrides Function GetInheritanceKind(typeNode As SyntaxNode, typeSymbol As INamedTypeSymbol) As EnvDTE80.vsCMInheritanceKind
@@ -2746,18 +2838,18 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                          TypeOf memberNode Is PropertyStatementSyntax)
 
             Dim propertyStatement = TryCast(memberNode, PropertyStatementSyntax)
-            If propertyStatement IsNot Nothing Then
-                Debug.Assert(Not propertyStatement.IsParentKind(SyntaxKind.PropertyBlock))
 
-                ' Auto property
-                Return EnvDTE80.vsCMPropertyKind.vsCMPropertyKindReadWrite
+            If propertyStatement Is Nothing Then
+                Dim propertyBlock = TryCast(memberNode, PropertyBlockSyntax)
+                If propertyBlock IsNot Nothing Then
+                    propertyStatement = propertyBlock.PropertyStatement
+                End If
             End If
 
-            Dim propertyBlock = TryCast(memberNode, PropertyBlockSyntax)
-            If propertyBlock IsNot Nothing Then
-                If propertyBlock.PropertyStatement.Modifiers.Any(SyntaxKind.WriteOnlyKeyword) Then
+            If propertyStatement IsNot Nothing Then
+                If propertyStatement.Modifiers.Any(SyntaxKind.WriteOnlyKeyword) Then
                     Return EnvDTE80.vsCMPropertyKind.vsCMPropertyKindWriteOnly
-                ElseIf propertyBlock.PropertyStatement.Modifiers.Any(SyntaxKind.ReadOnlyKeyword) Then
+                ElseIf propertyStatement.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
                     Return EnvDTE80.vsCMPropertyKind.vsCMPropertyKindReadOnly
                 Else
                     Return EnvDTE80.vsCMPropertyKind.vsCMPropertyKindReadWrite
@@ -2788,7 +2880,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                         asClause:=Nothing)
                 End If
             Else
-                Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+                Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
                 Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
                 ' If this is a Sub, convert to a Function
@@ -2828,7 +2920,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 .WithLeadingTrivia(SyntaxTriviaList.Empty) _
                 .WithTrailingTrivia(SyntaxTriviaList.Empty)
 
-            Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+            Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
             Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
             ' If the event has a parameter list, we need to remove it.
@@ -2855,7 +2947,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Throw Exceptions.ThrowEInvalidArg()
             End If
 
-            Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+            Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
             Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
             ' Update the event statement
@@ -2913,7 +3005,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                     If namedTypeSymbol IsNot Nothing Then
                         Dim invokeMethod = namedTypeSymbol.DelegateInvokeMethod
                         If invokeMethod IsNot Nothing Then
-                            Dim parameterStrings = invokeMethod.Parameters.Select(Function(p) p.ToDisplayString(raiseEventSignatureFormat))
+                            Dim parameterStrings = invokeMethod.Parameters.Select(Function(p) p.ToDisplayString(s_raiseEventSignatureFormat))
                             Dim parameterListString = "("c & String.Join(", ", parameterStrings) & ")"c
                             Dim newParameterList = SyntaxFactory.ParseParameterList(parameterListString)
 
@@ -2954,7 +3046,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                         implementsClause:=methodStatement.ImplementsClause)
                 End If
             Else
-                Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+                Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
                 Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
                 ' If this is a Sub, convert to a Function
@@ -3026,7 +3118,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 .WithLeadingTrivia(SyntaxTriviaList.Empty) _
                 .WithTrailingTrivia(SyntaxTriviaList.Empty)
 
-            Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+            Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
             Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
             If parameter.AsClause IsNot Nothing Then
@@ -3055,7 +3147,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 .WithLeadingTrivia(SyntaxTriviaList.Empty) _
                 .WithTrailingTrivia(SyntaxTriviaList.Empty)
 
-            Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+            Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
             Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
             If propertyStatement.AsClause IsNot Nothing Then
@@ -3087,7 +3179,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
             Dim propertyStatement = SetPropertyType(propertyBlock.PropertyStatement, typeSymbol)
             propertyBlock = propertyBlock.WithPropertyStatement(propertyStatement)
 
-            Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+            Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
             Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
             For i = 0 To propertyBlock.Accessors.Count - 1
@@ -3138,7 +3230,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 .WithLeadingTrivia(SyntaxTriviaList.Empty) _
                 .WithTrailingTrivia(SyntaxTriviaList.Empty)
 
-            Dim typeName = typeSymbol.ToDisplayString(setTypeFormat)
+            Dim typeName = typeSymbol.ToDisplayString(s_setTypeFormat)
             Dim newType = SyntaxFactory.ParseTypeName(typeName)
 
             If variableDeclarator.AsClause IsNot Nothing Then
@@ -3406,6 +3498,8 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
             Select Case CType(node.Kind, SyntaxKind)
                 Case SyntaxKind.ClassBlock,
                      SyntaxKind.ConstructorBlock,
+                     SyntaxKind.DeclareFunctionStatement,
+                     SyntaxKind.DeclareSubStatement,
                      SyntaxKind.DelegateFunctionStatement,
                      SyntaxKind.DelegateSubStatement,
                      SyntaxKind.EnumBlock,
@@ -3604,6 +3698,14 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                 Dim member = DirectCast(container, EnumMemberDeclarationSyntax)
                 Dim attributeLists = member.AttributeLists.Insert(index, attributeList)
                 Return member.WithAttributeLists(attributeLists)
+            ElseIf TypeOf container Is DeclareStatementSyntax Then
+                Dim declareStatement = DirectCast(container, DeclareStatementSyntax)
+                Dim attributeLists = declareStatement.AttributeLists.Insert(index, attributeList)
+                Return declareStatement.WithAttributeLists(attributeLists)
+            ElseIf TypeOf container Is MethodStatementSyntax Then
+                Dim methodStatement = DirectCast(container, MethodStatementSyntax)
+                Dim attributeLists = methodStatement.AttributeLists.Insert(index, attributeList)
+                Return methodStatement.WithAttributeLists(attributeLists)
             ElseIf TypeOf container Is MethodBlockBaseSyntax Then
                 Dim method = DirectCast(container, MethodBlockBaseSyntax)
                 If TypeOf method.BlockStatement Is SubNewStatementSyntax Then
@@ -3614,11 +3716,27 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
                     Dim operatorStatement = DirectCast(method.BlockStatement, OperatorStatementSyntax)
                     Dim attributeLists = operatorStatement.AttributeLists.Insert(index, attributeList)
                     Return DirectCast(method, OperatorBlockSyntax).WithBlockStatement(operatorStatement.WithAttributeLists(attributeLists))
+                ElseIf TypeOf method.BlockStatement Is MethodStatementSyntax Then
+                    Dim methodStatement = DirectCast(method.BlockStatement, MethodStatementSyntax)
+                    Dim attributeLists = methodStatement.AttributeLists.Insert(index, attributeList)
+                    Return DirectCast(method, MethodBlockSyntax).WithBlockStatement(methodStatement.WithAttributeLists(attributeLists))
                 End If
+            ElseIf TypeOf container Is PropertyStatementSyntax Then
+                Dim propertyStatement = DirectCast(container, PropertyStatementSyntax)
+                Dim attributeLists = propertyStatement.AttributeLists.Insert(index, attributeList)
+                Return propertyStatement.WithAttributeLists(attributeLists)
             ElseIf TypeOf container Is PropertyBlockSyntax Then
                 Dim propertyBlock = DirectCast(container, PropertyBlockSyntax)
                 Dim attributeLists = propertyBlock.PropertyStatement.AttributeLists.Insert(index, attributeList)
                 Return propertyBlock.WithPropertyStatement(propertyBlock.PropertyStatement.WithAttributeLists(attributeLists))
+            ElseIf TypeOf container Is EventStatementSyntax Then
+                Dim eventStatement = DirectCast(container, EventStatementSyntax)
+                Dim attributeLists = eventStatement.AttributeLists.Insert(index, attributeList)
+                Return eventStatement.WithAttributeLists(attributeLists)
+            ElseIf TypeOf container Is EventBlockSyntax
+                Dim eventBlock = DirectCast(container, EventBlockSyntax)
+                Dim attributeLists = eventBlock.EventStatement.AttributeLists.Insert(index, attributeList)
+                Return eventBlock.WithEventStatement(eventBlock.EventStatement.WithAttributeLists(attributeLists))
             ElseIf TypeOf container Is FieldDeclarationSyntax Then
                 Dim field = DirectCast(container, FieldDeclarationSyntax)
                 Dim attributeLists = field.AttributeLists.Insert(index, attributeList)
@@ -3759,7 +3877,7 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
             End If
 
             ' If eventName starts with an unescaped keyword other than Me, MyBase or MyClass, we need to escape it.
-            If Not eventName.StartsWith("[") Then
+            If Not eventName.StartsWith("[", StringComparison.Ordinal) Then
                 Dim dotIndex = eventName.IndexOf("."c)
                 If dotIndex >= 0 Then
                     Return EscapeIfNotMeMyBaseOrMyClass(eventName.Substring(0, dotIndex)) & eventName.Substring(dotIndex)
@@ -4109,15 +4227,15 @@ Namespace Microsoft.VisualStudio.LanguageServices.VisualBasic.CodeModel
         End Function
 
         Public Overrides Sub AttachFormatTrackingToBuffer(buffer As ITextBuffer)
-            commitBufferManagerFactory.CreateForBuffer(buffer).AddReferencingView()
+            _commitBufferManagerFactory.CreateForBuffer(buffer).AddReferencingView()
         End Sub
 
         Public Overrides Sub DetachFormatTrackingToBuffer(buffer As ITextBuffer)
-            commitBufferManagerFactory.CreateForBuffer(buffer).RemoveReferencingView()
+            _commitBufferManagerFactory.CreateForBuffer(buffer).RemoveReferencingView()
         End Sub
 
         Public Overrides Sub EnsureBufferFormatted(buffer As ITextBuffer)
-            commitBufferManagerFactory.CreateForBuffer(buffer).CommitDirty(isExplicitFormat:=False, cancellationToken:=Nothing)
+            _commitBufferManagerFactory.CreateForBuffer(buffer).CommitDirty(isExplicitFormat:=False, cancellationToken:=Nothing)
         End Sub
     End Class
 End Namespace

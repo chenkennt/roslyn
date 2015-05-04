@@ -68,9 +68,13 @@ namespace Roslyn.Utilities
 
             // add backup notation for remaining base path levels beyond the index
             var remainingParts = basePathParts.Length - index;
-            for (int i = 0; i < remainingParts; i++)
+            if (remainingParts > 0)
             {
-                relativePath += relativePath + ".." + Path.DirectorySeparatorChar;
+                string directorySeparator = Path.DirectorySeparatorChar.ToString();
+                for (int i = 0; i < remainingParts; i++)
+                {
+                    relativePath += relativePath + ".." + directorySeparator;
+                }
             }
 
             // add the rest of the full path parts
@@ -98,6 +102,21 @@ namespace Roslyn.Utilities
         public static bool PathsEqual(string path1, string path2)
         {
             return string.Compare(path1, path2, StringComparison.OrdinalIgnoreCase) == 0;
+        }
+
+        public static bool TryCombine(string path1, string path2, out string result)
+        {
+            try
+            {
+                // don't throw exception when either path1 or path2 contains illegal path char
+                result = Path.Combine(path1, path2);
+                return true;
+            }
+            catch
+            {
+                result = null;
+                return false;
+            }
         }
     }
 }

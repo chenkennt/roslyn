@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 extern alias PDB;
 
+
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis.CodeGen;
 using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Test.Utilities;
@@ -28,9 +30,9 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
         public readonly ImmutableArray<MethodDefinitionHandle> UpdatedMethods;
 
         public CompilationDifference(
-            ImmutableArray<byte> metadata, 
-            ImmutableArray<byte> il, 
-            Stream pdbStream, 
+            ImmutableArray<byte> metadata,
+            ImmutableArray<byte> il,
+            Stream pdbStream,
             CompilationTestData testData,
             EmitDifferenceResult result,
             ImmutableArray<MethodDefinitionHandle> methodHandles)
@@ -64,11 +66,11 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
         }
 
         public void VerifyIL(
-            string qualifiedMethodName, 
-            string expectedIL, 
-            Func<Cci.ILocalDefinition, ILVisualizer.LocalInfo> mapLocal = null, 
+            string qualifiedMethodName,
+            string expectedIL,
+            Func<Cci.ILocalDefinition, ILVisualizer.LocalInfo> mapLocal = null,
             MethodDefinitionHandle methodToken = default(MethodDefinitionHandle),
-            [CallerFilePath]string callerPath = null, 
+            [CallerFilePath]string callerPath = null,
             [CallerLineNumber]int callerLine = 0)
         {
             var ilBuilder = TestData.GetMethodData(qualifiedMethodName).ILBuilder;
@@ -89,10 +91,14 @@ namespace Microsoft.CodeAnalysis.Test.Utilities
             VerifyPdb(methodHandles.Select(h => MetadataTokens.GetToken(h)), expectedPdb);
         }
 
-        public void VerifyPdb(IEnumerable<int> methodTokens, string expectedPdb)
+        public void VerifyPdb(
+            IEnumerable<int> methodTokens, 
+            string expectedPdb,
+            [CallerLineNumber]int expectedValueSourceLine = 0,
+            [CallerFilePath]string expectedValueSourcePath = null)
         {
             string actualPdb = PdbToXmlConverter.DeltaPdbToXml(PdbDelta, methodTokens);
-            TestBase.AssertXmlEqual(expectedPdb, actualPdb);
+            AssertXml.Equal(XElement.Parse(expectedPdb), XElement.Parse(actualPdb), expectedValueSourcePath, expectedValueSourceLine, expectedIsXmlLiteral: false);
         }
 
         internal string GetMethodIL(string qualifiedMethodName)

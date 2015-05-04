@@ -4,11 +4,12 @@ using Microsoft.CodeAnalysis.CodeGen;
 using Microsoft.CodeAnalysis.CSharp.Test.Utilities;
 using Microsoft.CodeAnalysis.ExpressionEvaluator;
 using Microsoft.CodeAnalysis.Test.Utilities;
-using Microsoft.VisualStudio.Debugger.Evaluation.ClrCompilation;
 using Roslyn.Test.Utilities;
 using System;
 using System.Collections.Immutable;
 using Xunit;
+using Roslyn.Test.PdbUtilities;
+using Microsoft.VisualStudio.Debugger.Evaluation;
 
 namespace Microsoft.CodeAnalysis.CSharp.UnitTests
 {
@@ -93,7 +94,7 @@ public interface I
             compilation0.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
             // References should not include PIA.
             Assert.Equal(references.Length, 1);
-            Assert.True(references[0].Display.StartsWith("mscorlib"));
+            Assert.True(references[0].Display.StartsWith("mscorlib", StringComparison.Ordinal));
             var runtime = CreateRuntimeInstance(
                 Guid.NewGuid().ToString("D"),
                 references,
@@ -209,8 +210,18 @@ public interface I
 
                 // Binding to method on original PIA should fail
                 // since it was not included in embedded type.
-                testData = new CompilationTestData();
-                context.CompileExpression("x.F()", out resultProperties, out error, testData);
+                ImmutableArray<AssemblyIdentity> missingAssemblyIdentities;
+                context.CompileExpression(
+                    DefaultInspectionContext.Instance,
+                    "x.F()",
+                    DkmEvaluationFlags.TreatAsExpression,
+                    DiagnosticFormatter.Instance,
+                    out resultProperties,
+                    out error,
+                    out missingAssemblyIdentities,
+                    EnsureEnglishUICulture.PreferredOrNull,
+                    testData: null);
+                AssertEx.SetEqual(missingAssemblyIdentities, EvaluationContextBase.SystemCoreIdentity);
                 Assert.Equal(error, "error CS1061: 'I' does not contain a definition for 'F' and no extension method 'F' accepting a first argument of type 'I' could be found (are you missing a using directive or an assembly reference?)");
 
                 // Binding to method on original PIA should succeed

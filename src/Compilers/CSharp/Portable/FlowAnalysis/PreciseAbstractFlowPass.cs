@@ -54,7 +54,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// this is false). Since the analysis proceeds by monotonically changing the state computed
         /// at each label, this must terminate.
         /// </summary>
-        internal bool backwardBranchChanged = false;
+        internal bool backwardBranchChanged;
 
         /// <summary>
         /// See property PendingBranches
@@ -1602,6 +1602,7 @@ namespace Microsoft.CodeAnalysis.CSharp
 
             // visit switch block
             VisitSwitchBlock(node);
+            IntersectWith(ref breakState, ref this.State);
             ResolveBreaks(breakState, node.BreakLabel);
             return null;
         }
@@ -1661,13 +1662,19 @@ namespace Microsoft.CodeAnalysis.CSharp
 
         private void VisitSwitchBlock(BoundSwitchStatement node)
         {
+            var afterSwitchState = UnreachableState();
             var switchSections = node.SwitchSections;
             var iLastSection = (switchSections.Length - 1);
             // visit switch sections
             for (var iSection = 0; iSection <= iLastSection; iSection++)
             {
                 VisitSwitchSection(switchSections[iSection], iSection == iLastSection);
+                // Even though it is illegal for the end of a switch section to be reachable, in erroneous
+                // code it may be reachable.  We treat that as an implicit break (branch to afterSwitchState).
+                IntersectWith(ref afterSwitchState, ref this.State);
             }
+
+            SetState(afterSwitchState);
         }
 
         public virtual BoundNode VisitSwitchSection(BoundSwitchSection node, bool lastSection)
@@ -1973,8 +1980,41 @@ namespace Microsoft.CodeAnalysis.CSharp
             return null;
         }
 
+        public override BoundNode VisitLoweredConditionalAccess(BoundLoweredConditionalAccess node)
+        {
+            VisitRvalue(node.Receiver);
+
+            var savedState = this.State.Clone();
+
+            VisitRvalue(node.WhenNotNull);
+            IntersectWith(ref this.State, ref savedState);
+
+            if (node.WhenNullOpt != null)
+            {
+                savedState = this.State.Clone();
+                VisitRvalue(node.WhenNullOpt);
+                IntersectWith(ref this.State, ref savedState);
+            }
+
+            return null;
+        }
+
         public override BoundNode VisitConditionalReceiver(BoundConditionalReceiver node)
         {
+            return null;
+        }
+
+        public override BoundNode VisitComplexConditionalReceiver(BoundComplexConditionalReceiver node)
+        {
+            var savedState = this.State.Clone();
+
+            VisitRvalue(node.ValueTypeReceiver);
+            IntersectWith(ref this.State, ref savedState);
+
+            savedState = this.State.Clone();
+            VisitRvalue(node.ReferenceTypeReceiver);
+            IntersectWith(ref this.State, ref savedState);
+
             return null;
         }
 

@@ -14,7 +14,7 @@ using Roslyn.Utilities;
 
 namespace Microsoft.CodeAnalysis.SolutionCrawler
 {
-    internal sealed partial class WorkCoordinatorRegistrationService
+    internal sealed partial class SolutionCrawlerRegistrationService
     {
         private sealed partial class WorkCoordinator
         {
@@ -45,6 +45,16 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                         _globalOperationNotificationService.Stopped += OnGlobalOperationStopped;
                     }
 
+                    protected Task GlobalOperationTask
+                    {
+                        get
+                        {
+                            return _globalOperationTask;
+                        }
+                    }
+
+                    protected abstract void PauseOnGlobalOperation();
+
                     private void OnGlobalOperationStarted(object sender, EventArgs e)
                     {
                         Contract.ThrowIfFalse(_globalOperation == null);
@@ -54,11 +64,17 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                         _globalOperationTask = _globalOperation.Task;
 
                         SolutionCrawlerLogger.LogGlobalOperation(this.Processor._logAggregator);
+
+                        PauseOnGlobalOperation();
                     }
 
                     private void OnGlobalOperationStopped(object sender, GlobalOperationEventArgs e)
                     {
-                        Contract.ThrowIfFalse(_globalOperation != null);
+                        if (_globalOperation == null)
+                        {
+                            // we subscribed to the event while it is already running.
+                            return;
+                        }
 
                         // events are serialized. no lock is needed
                         _globalOperation.SetResult(null);
@@ -68,10 +84,30 @@ namespace Microsoft.CodeAnalysis.SolutionCrawler
                         _globalOperationTask = SpecializedTasks.EmptyTask;
                     }
 
-                    protected async Task GlobalOperationWaitAsync()
+                    protected abstract Task HigherQueueOperationTask { get; }
+                    protected abstract bool HigherQueueHasWorkItem { get; }
+
+                    protected async Task WaitForHigherPriorityOperationsAsync()
                     {
-                        // we wait for global operation if there is anything going on
-                        await _globalOperationTask.ConfigureAwait(false);
+                        do
+                        {
+                            // we wait for global operation and higher queue operation if there is anything going on
+                            if (!this.GlobalOperationTask.IsCompleted || !this.HigherQueueOperationTask.IsCompleted)
+                            {
+                                await Task.WhenAll(this.GlobalOperationTask, this.HigherQueueOperationTask).ConfigureAwait(false);
+                            }
+
+                            // if there are no more work left for higher queue, then it is our time to go ahead
+                            if (!HigherQueueHasWorkItem)
+                            {
+                                break;
+                            }
+
+                            // back off and wait for next time slot.
+                            this.UpdateLastAccessTime();
+                            await this.WaitForIdleAsync().ConfigureAwait(false);
+                        }
+                        while (true);
                     }
 
                     public virtual void Shutdown()

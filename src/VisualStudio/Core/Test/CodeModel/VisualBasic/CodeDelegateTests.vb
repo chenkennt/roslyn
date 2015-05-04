@@ -139,6 +139,23 @@ Delegate Sub $$Foo(i As Integer)
 
 #End Region
 
+#Region "Attributes"
+
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub Attributes()
+            Dim code =
+<Code>
+Imports System
+
+&lt;CLSCompliant(False)&gt;
+Delegate Sub $$D()
+</Code>
+
+            TestAttributes(code, IsElement("CLSCompliant"))
+        End Sub
+
+#End Region
+
 #Region "BaseClass tests"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
@@ -309,7 +326,7 @@ End Class
 #Region "AddParameter tests"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AddParameter1()
+        Public Sub AddParameter1()
             Dim code =
 <Code>
 Delegate Sub $$M()
@@ -324,7 +341,7 @@ Delegate Sub M(a As Integer)
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AddParameter2()
+        Public Sub AddParameter2()
             Dim code =
 <Code>
 Delegate Sub $$M(a As Integer)
@@ -339,7 +356,7 @@ Delegate Sub M(b As String, a As Integer)
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AddParameter3()
+        Public Sub AddParameter3()
             Dim code =
 <Code>
 Delegate Sub $$M(b As String, a As Integer)
@@ -354,7 +371,7 @@ Delegate Sub M(b As String, c As Boolean, a As Integer)
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub AddParameter4()
+        Public Sub AddParameter4()
             Dim code =
 <Code>
 Delegate Sub $$M(a As Integer)
@@ -373,7 +390,7 @@ Delegate Sub M(a As Integer, b As String)
 #Region "RemoveParamter tests"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub RemoveParameter1()
+        Public Sub RemoveParameter1()
             Dim code =
 <Code>
 Delegate Sub $$M(a As Integer)
@@ -388,7 +405,7 @@ Delegate Sub M()
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub RemoveParameter2()
+        Public Sub RemoveParameter2()
             Dim code =
 <Code>
 Delegate Sub $$M(a As Integer, b As String)
@@ -403,7 +420,7 @@ Delegate Sub M(a As Integer)
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub RemoveParameter3()
+        Public Sub RemoveParameter3()
             Dim code =
 <Code>
 Delegate Sub $$M(a As Integer, b As String)
@@ -418,7 +435,7 @@ Delegate Sub M(b As String)
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub RemoveParameter4()
+        Public Sub RemoveParameter4()
             Dim code =
 <Code>
 Delegate Sub $$M(a As Integer, b As String, c As Integer)
@@ -437,7 +454,7 @@ Delegate Sub M(a As Integer, c As Integer)
 #Region "GenericExtender"
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub GenericExtender_GetBaseTypesCount()
+        Public Sub GenericExtender_GetBaseTypesCount()
             Dim code =
 <Code>
 Delegate Sub $$D()
@@ -447,7 +464,7 @@ Delegate Sub $$D()
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub GenericExtender_GetBaseGenericName()
+        Public Sub GenericExtender_GetBaseGenericName()
             Dim code =
 <Code>
 Delegate Sub $$D()
@@ -457,7 +474,7 @@ Delegate Sub $$D()
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub GenericExtender_GetImplementedTypesCount()
+        Public Sub GenericExtender_GetImplementedTypesCount()
             Dim code =
 <Code>
 Delegate Sub $$D()
@@ -467,13 +484,39 @@ Delegate Sub $$D()
         End Sub
 
         <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
-        Sub GenericExtender_GetImplTypeGenericName()
+        Public Sub GenericExtender_GetImplTypeGenericName()
             Dim code =
 <Code>
 Delegate Sub $$D()
 </Code>
 
             TestGenericNameExtender_GetImplTypeGenericName(code, 1, Nothing)
+        End Sub
+
+#End Region
+
+#Region "Parameter name tests"
+
+        <WorkItem(1147885)>
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub TestParameterNameWithEscapeCharacters()
+            Dim code =
+<Code>
+Delegate Sub $$D([integer] as Integer)
+</Code>
+
+            TestAllParameterNames(code, "[integer]")
+        End Sub
+
+        <WorkItem(1147885)>
+        <ConditionalFact(GetType(x86)), Trait(Traits.Feature, Traits.Features.CodeModel)>
+        Public Sub TestParameterNameWithEscapeCharacters_2()
+            Dim code =
+<Code>
+Delegate Sub $$D([integer] as Integer, [string] as String)
+</Code>
+
+            TestAllParameterNames(code, "[integer]", "[string]")
         End Sub
 
 #End Region

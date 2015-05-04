@@ -1,4 +1,6 @@
-﻿Imports Microsoft.CodeAnalysis.VisualBasic
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports Microsoft.CodeAnalysis.VisualBasic
 
 ' Required by Microsoft.CodeAnalysis.VisualBasic.Syntax.KeywordTable
 Namespace Microsoft.CodeAnalysis.Text
@@ -20,7 +22,7 @@ End Namespace
 Namespace System.Runtime.CompilerServices
 
     <AttributeUsage(AttributeTargets.Assembly Or AttributeTargets.Class Or AttributeTargets.Method, AllowMultiple:=False, Inherited:=False)>
-    Class ExtensionAttribute : Inherits Attribute
+    Friend Class ExtensionAttribute : Inherits Attribute
     End Class
 
 End Namespace

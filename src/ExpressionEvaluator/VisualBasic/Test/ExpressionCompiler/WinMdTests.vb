@@ -1,10 +1,13 @@
-﻿Imports System.Collections.Immutable
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports System.Collections.Immutable
 Imports System.Reflection.Metadata
 Imports Microsoft.CodeAnalysis.CodeGen
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.Test.Utilities
 Imports Microsoft.CodeAnalysis.VisualBasic.Symbols.Metadata.PE
 Imports Microsoft.VisualStudio.Debugger.Evaluation
+Imports Roslyn.Test.PdbUtilities
 Imports Roslyn.Test.Utilities
 Imports Xunit
 Imports Resources = Microsoft.CodeAnalysis.ExpressionEvaluator.UnitTests.Resources
@@ -27,7 +30,7 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.UnitTests
     Shared Sub M(f As Windows.Storage.StorageFolder, p As Windows.Foundation.Collections.PropertySet)
     End Sub
 End Class"
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll, references:=WinRtRefs)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll, references:=WinRtRefs)
             Dim runtimeAssemblies = ExpressionCompilerTestHelpers.GetRuntimeWinMds("Windows.Storage", "Windows.Foundation.Collections")
             Assert.True(runtimeAssemblies.Length >= 2)
             Dim exeBytes As Byte() = Nothing
@@ -196,28 +199,28 @@ End Class"
                 ImmutableArray.Create(MscorlibRef).Concat(ExpressionCompilerTestHelpers.GetRuntimeWinMds("Windows.Storage", "Windows.Foundation.Collections")))
             Dim context = CreateMethodContext(runtime, "C.M")
             Dim resultProperties As ResultProperties = Nothing
-			Dim errorMessage As String = Nothing
-			Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
-			Dim testData = New CompilationTestData()
-			context.CompileExpression(
-				InspectionContextFactory.Empty.
-					Add("s", "Windows.Storage.StorageFolder, Windows.Storage, Version=255.255.255.255, Culture=neutral, PublicKeyToken=null, ContentType=WindowsRuntime").
-					Add("d", "Windows.Foundation.DateTime, Windows.Foundation, Version=255.255.255.255, Culture=neutral, PublicKeyToken=null, ContentType=WindowsRuntime"),
-				"If(DirectCast(s.Attributes, Object), d.UniversalTime)",
-				DkmEvaluationFlags.TreatAsExpression,
-				DiagnosticFormatter.Instance,
-				resultProperties,
-				errorMessage,
-				missingAssemblyIdentities,
-				EnsureEnglishUICulture.PreferredOrNull,
-				testData)
-			Assert.Empty(missingAssemblyIdentities)
-			testData.GetMethodData("<>x.<>m0").VerifyIL(
+            Dim errorMessage As String = Nothing
+            Dim missingAssemblyIdentities As ImmutableArray(Of AssemblyIdentity) = Nothing
+            Dim testData = New CompilationTestData()
+            context.CompileExpression(
+                InspectionContextFactory.Empty.
+                    Add("s", "Windows.Storage.StorageFolder, Windows.Storage, Version=255.255.255.255, Culture=neutral, PublicKeyToken=null, ContentType=WindowsRuntime").
+                    Add("d", "Windows.Foundation.DateTime, Windows.Foundation, Version=255.255.255.255, Culture=neutral, PublicKeyToken=null, ContentType=WindowsRuntime"),
+                "If(DirectCast(s.Attributes, Object), d.UniversalTime)",
+                DkmEvaluationFlags.TreatAsExpression,
+                DiagnosticFormatter.Instance,
+                resultProperties,
+                errorMessage,
+                missingAssemblyIdentities,
+                EnsureEnglishUICulture.PreferredOrNull,
+                testData)
+            Assert.Empty(missingAssemblyIdentities)
+            testData.GetMethodData("<>x.<>m0").VerifyIL(
 "{
   // Code size       55 (0x37)
   .maxstack  2
   IL_0000:  ldstr      ""s""
-  IL_0005:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
+  IL_0005:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
   IL_000a:  castclass  ""Windows.Storage.StorageFolder""
   IL_000f:  callvirt   ""Function Windows.Storage.StorageFolder.get_Attributes() As Windows.Storage.FileAttributes""
   IL_0014:  box        ""Windows.Storage.FileAttributes""
@@ -225,7 +228,7 @@ End Class"
   IL_001a:  brtrue.s   IL_0036
   IL_001c:  pop
   IL_001d:  ldstr      ""d""
-  IL_0022:  call       ""Function <>x.<>GetObjectByAlias(String) As Object""
+  IL_0022:  call       ""Function Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(String) As Object""
   IL_0027:  unbox.any  ""Windows.Foundation.DateTime""
   IL_002c:  ldfld      ""Windows.Foundation.DateTime.UniversalTime As Long""
   IL_0031:  box        ""Long""
@@ -240,7 +243,7 @@ End Class"
 
             Dim comp = CreateCompilationWithMscorlib(
                 {source},
-                compOptions:=TestOptions.DebugDll,
+                options:=TestOptions.DebugDll,
                 assemblyName:=ExpressionCompilerUtilities.GenerateUniqueName(),
                 references:=compileReferences)
             Dim exeBytes As Byte() = Nothing
@@ -249,7 +252,7 @@ End Class"
             comp.EmitAndGetReferences(exeBytes, pdbBytes, references)
             Return CreateRuntimeInstance(
                 ExpressionCompilerUtilities.GenerateUniqueName(),
-                runtimeReferences,
+                runtimeReferences.AddIntrinsicAssembly(),
                 exeBytes,
                 New SymReader(pdbBytes))
         End Function

@@ -1,9 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -12,24 +10,30 @@ namespace Microsoft.CodeAnalysis.CompilerServer
 {
     internal sealed class CSharpCompilerServer : CSharpCompiler
     {
-        internal CSharpCompilerServer(string responseFile, string[] args, string baseDirectory, string libDirectory, string tempPath)
-            : base(CSharpCommandLineParser.Default, responseFile, args, baseDirectory, libDirectory, tempPath)
+        internal CSharpCompilerServer(string[] args, string clientDirectory, string baseDirectory, string sdkDirectory, string libDirectory, IAnalyzerAssemblyLoader analyzerLoader)
+            : base(CSharpCommandLineParser.Default, clientDirectory != null ? Path.Combine(clientDirectory, ResponseFileName) : null, args, clientDirectory, baseDirectory, sdkDirectory, libDirectory, analyzerLoader)
         {
         }
 
         public static int RunCompiler(
-            string responseFileDirectory,
+            string clientDirectory,
             string[] args,
             string baseDirectory,
+            string sdkDirectory,
             string libDirectory,
-            string tempPath,
+            IAnalyzerAssemblyLoader analyzerLoader,
             TextWriter output,
             CancellationToken cancellationToken,
             out bool utf8output)
         {
-            var responseFile = Path.Combine(responseFileDirectory, CSharpCompiler.ResponseFileName);
-            var compiler = new CSharpCompilerServer(responseFile, args, baseDirectory, libDirectory, tempPath);
+            var compiler = new CSharpCompilerServer(args, clientDirectory, baseDirectory, sdkDirectory, libDirectory, analyzerLoader);
             utf8output = compiler.Arguments.Utf8Output;
+
+            foreach (var analyzer in compiler.Arguments.AnalyzerReferences)
+            {
+                CompilerServerFileWatcher.AddPath(analyzer.FilePath);
+            }
+
             return compiler.Run(output, cancellationToken);
         }
 

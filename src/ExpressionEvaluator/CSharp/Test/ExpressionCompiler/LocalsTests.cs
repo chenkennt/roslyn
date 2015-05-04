@@ -1,17 +1,16 @@
 // Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.IO;
+using System.Collections.ObjectModel;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CodeGen;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using Microsoft.CodeAnalysis.CSharp.Test.Utilities;
 using Microsoft.CodeAnalysis.ExpressionEvaluator;
 using Microsoft.CodeAnalysis.Test.Utilities;
 using Microsoft.VisualStudio.Debugger.Evaluation.ClrCompilation;
+using Roslyn.Test.PdbUtilities;
 using Roslyn.Test.Utilities;
 using Xunit;
 
@@ -213,6 +212,115 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
         }
 
         [Fact]
+        public void LocalsAndPseudoVariables()
+        {
+            var source =
+@"class C
+{
+    void M(object o)
+    {
+    }
+}";
+            var compilation0 = CreateCompilationWithMscorlib(
+                source,
+                options: TestOptions.DebugDll,
+                assemblyName: ExpressionCompilerUtilities.GenerateUniqueName());
+            var runtime = CreateRuntimeInstance(compilation0);
+            var context = CreateMethodContext(runtime, methodName: "C.M");
+            var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
+            string typeName;
+            var diagnostics = DiagnosticBag.GetInstance();
+            var builder = ArrayBuilder<Alias>.GetInstance();
+            builder.Add(new Alias(AliasKind.Exception, "Error", "$exception", typeof(System.IO.IOException).AssemblyQualifiedName, default(CustomTypeInfo)));
+            builder.Add(new Alias(AliasKind.ReturnValue, "F returned", "$ReturnValue2", typeof(string).AssemblyQualifiedName, default(CustomTypeInfo)));
+            builder.Add(new Alias(AliasKind.ReturnValue, "G returned", "$ReturnValue", typeof(object).AssemblyQualifiedName, default(CustomTypeInfo)));
+            builder.Add(new Alias(AliasKind.ObjectId, "2", "2", typeof(bool).AssemblyQualifiedName, default(CustomTypeInfo)));
+            builder.Add(new Alias(AliasKind.DeclaredLocal, "o", "o", "C", default(CustomTypeInfo)));
+            var aliases = new ReadOnlyCollection<Alias>(builder.ToArrayAndFree());
+
+            var testData = new CompilationTestData();
+            context.CompileGetLocals(
+                aliases,
+                locals,
+                argumentsOnly: true,
+                diagnostics: diagnostics,
+                typeName: out typeName,
+                testData: testData);
+            Assert.Equal(locals.Count, 1);
+            VerifyLocal(testData, typeName, locals[0], "<>m0", "o");
+            locals.Clear();
+
+            testData = new CompilationTestData();
+            context.CompileGetLocals(
+                aliases,
+                locals,
+                argumentsOnly: false,
+                diagnostics: diagnostics,
+                typeName: out typeName,
+                testData: testData);
+            diagnostics.Free();
+            Assert.Equal(locals.Count, 7);
+            VerifyLocal(testData, typeName, locals[0], "<>m0", "$exception", expectedFlags: DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
+@"{
+  // Code size       11 (0xb)
+  .maxstack  1
+  IL_0000:  call       ""System.Exception Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetException()""
+  IL_0005:  castclass  ""System.IO.IOException""
+  IL_000a:  ret
+}");
+            VerifyLocal(testData, typeName, locals[1], "<>m1", "$ReturnValue2", expectedFlags: DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
+@"{
+  // Code size       12 (0xc)
+  .maxstack  1
+  IL_0000:  ldc.i4.2
+  IL_0001:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetReturnValue(int)""
+  IL_0006:  castclass  ""string""
+  IL_000b:  ret
+}");
+            VerifyLocal(testData, typeName, locals[2], "<>m2", "$ReturnValue", expectedFlags: DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  IL_0000:  ldc.i4.0
+  IL_0001:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetReturnValue(int)""
+  IL_0006:  ret
+}");
+            VerifyLocal(testData, typeName, locals[3], "<>m3", "2", expectedILOpt:
+@"{
+  // Code size       16 (0x10)
+  .maxstack  1
+  IL_0000:  ldstr      ""2""
+  IL_0005:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(string)""
+  IL_000a:  unbox.any  ""bool""
+  IL_000f:  ret
+}");
+            VerifyLocal(testData, typeName, locals[4], "<>m4", "o", expectedILOpt:
+@"{
+  // Code size       16 (0x10)
+  .maxstack  1
+  IL_0000:  ldstr      ""o""
+  IL_0005:  call       ""object Microsoft.VisualStudio.Debugger.Clr.IntrinsicMethods.GetObjectByAlias(string)""
+  IL_000a:  castclass  ""C""
+  IL_000f:  ret
+}");
+            VerifyLocal(testData, typeName, locals[5], "<>m5", "this", expectedILOpt:
+@"{
+  // Code size        2 (0x2)
+  .maxstack  1
+  IL_0000:  ldarg.0
+  IL_0001:  ret
+}");
+            VerifyLocal(testData, typeName, locals[6], "<>m6", "o", expectedILOpt:
+@"{
+  // Code size        2 (0x2)
+  .maxstack  1
+  IL_0000:  ldarg.1
+  IL_0001:  ret
+}");
+            locals.Free();
+        }
+
+        [Fact]
         public void This()
         {
             var source =
@@ -387,27 +495,27 @@ namespace Microsoft.CodeAnalysis.CSharp.UnitTests
             var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
             string typeName;
             context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
-            Assert.Equal(locals.Count, 3);
+            Assert.Equal(3, locals.Count);
             VerifyLocal(testData, typeName, locals[0], "<>m0", "w");
-            VerifyLocal(testData, typeName, locals[1], "<>m1", "y", DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
-@"{
+            VerifyLocal(testData, typeName, locals[1], "<>m1", "y", DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt: @"
+{
 // Code size        2 (0x2)
 .maxstack  1
 .locals init (bool V_0,
-            string V_1,
-            int V_2)
+              string V_1,
+              int V_2)
 IL_0000:  ldc.i4.3
 IL_0001:  ret
 }");
-            VerifyLocal(testData, typeName, locals[2], "<>m2", "v", DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
-@"{
-// Code size        2 (0x2)
-.maxstack  1
-.locals init (bool V_0,
-            string V_1,
-            int V_2)
-IL_0000:  ldc.i4.0
-IL_0001:  ret
+            VerifyLocal(testData, typeName, locals[2], "<>m2", "v", DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt: @"
+{
+  // Code size        2 (0x2)
+  .maxstack  1
+  .locals init (bool V_0,
+                string V_1,
+                int V_2)
+  IL_0000:  ldnull
+  IL_0001:  ret
 }");
             locals.Free();
 
@@ -457,15 +565,12 @@ class C
             byte[] pdbBytes;
             ImmutableArray<MetadataReference> references;
             compilation0.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
-            var constantSignatures = ImmutableDictionary.CreateRange(
-                new Dictionary<string, byte[]>()
-                {
-                    { "y", new byte[] { 0x11, 0x08 } }
-                });
-            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, constantSignatures));
+
+            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, exeBytes));
             var context = CreateMethodContext(
                 runtime,
                 methodName: "C.M");
+
             var testData = new CompilationTestData();
             var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
             string typeName;
@@ -521,13 +626,8 @@ class P
             byte[] pdbBytes;
             ImmutableArray<MetadataReference> references;
             compilation0.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
-            var constantSignatures = ImmutableDictionary.CreateRange(
-                new Dictionary<string, byte[]>()
-                {
-                    { "t", new byte[] { 0x15, 0x11, 0x10, 0x01, 0x13, 0x00 } },
-                    { "u", new byte[] { 0x15, 0x11, 0x10, 0x01, 0x1e, 0x00 } }
-                });
-            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, constantSignatures));
+
+            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, exeBytes));
             var context = CreateMethodContext(
                 runtime,
                 methodName: "C.M");
@@ -1395,7 +1495,8 @@ class C
                 System.Runtime.CompilerServices.TaskAwaiter<object> V_1,
                 object V_2,
                 C.<M>d__1 V_3,
-                System.Exception V_4)
+                System.Runtime.CompilerServices.TaskAwaiter<object> V_4,
+                System.Exception V_5)
   IL_0000:  ldarg.0
   IL_0001:  ldfld      ""object C.<M>d__1.x""
   IL_0006:  ret
@@ -1408,7 +1509,8 @@ class C
                 System.Runtime.CompilerServices.TaskAwaiter<object> V_1,
                 object V_2,
                 C.<M>d__1 V_3,
-                System.Exception V_4)
+                System.Runtime.CompilerServices.TaskAwaiter<object> V_4,
+                System.Exception V_5)
   IL_0000:  ldarg.0
   IL_0001:  ldfld      ""object C.<M>d__1.<y>5__1""
   IL_0006:  ret
@@ -1486,6 +1588,54 @@ class C
             locals.Free();
         }
 
+        [WorkItem(2240)]
+        [Fact]
+        public void AsyncLambda()
+        {
+            var source =
+@"using System;
+using System.Threading.Tasks;
+class C
+{
+    static void M()
+    {
+        Func<int, Task> f = async (x) =>
+        {
+            var y = 42;
+        };
+    }
+}";
+            var compilation = CreateCompilationWithMscorlib45(source, options: TestOptions.DebugDll);
+            var runtime = CreateRuntimeInstance(compilation);
+            var context = CreateMethodContext(runtime, methodName: "C.<>c.<<M>b__0_0>d.MoveNext");
+            var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
+            string typeName;
+            var testData = new CompilationTestData();
+            context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
+            Assert.Equal(locals.Count, 2);
+            VerifyLocal(testData, "<>x", locals[0], "<>m0", "x", expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  .locals init (int V_0,
+                System.Exception V_1)
+  IL_0000:  ldarg.0
+  IL_0001:  ldfld      ""int C.<>c.<<M>b__0_0>d.x""
+  IL_0006:  ret
+}");
+            VerifyLocal(testData, "<>x", locals[1], "<>m1", "y", expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  .locals init (int V_0,
+                System.Exception V_1)
+  IL_0000:  ldarg.0
+  IL_0001:  ldfld      ""int C.<>c.<<M>b__0_0>d.<y>5__1""
+  IL_0006:  ret
+}");
+            locals.Free();
+        }        
+
         [WorkItem(996571)]
         [Fact]
         public void MissingReference()
@@ -1506,27 +1656,38 @@ public struct B
 }";
             var compilation0 = CreateCompilationWithMscorlib(
                 source0,
-                options: TestOptions.DebugDll);
+                options: TestOptions.DebugDll, 
+                assemblyName: "Comp1");
+
             var compilation1 = CreateCompilationWithMscorlib(
                 source1,
                 options: TestOptions.DebugDll,
                 references: new[] { compilation0.EmitToImageReference() });
+
             byte[] exeBytes;
             byte[] pdbBytes;
             ImmutableArray<MetadataReference> references;
             compilation1.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
+
             var runtime = CreateRuntimeInstance(
                 ExpressionCompilerUtilities.GenerateUniqueName(),
                 ImmutableArray.Create(MscorlibRef), // no reference to compilation0
                 exeBytes,
                 new SymReader(pdbBytes));
+
             var context = CreateMethodContext(
                 runtime,
                 methodName: "C.M");
+
             var testData = new CompilationTestData();
             var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
             string typeName;
-            context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
+            context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData, expectedDiagnostics: new[]
+            {
+                // error CS0012: The type 'A' is defined in an assembly that is not referenced. You must add a reference to assembly 'Comp1, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'.
+                Diagnostic(ErrorCode.ERR_NoTypeDef).WithArguments("A", "Comp1, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").WithLocation(1, 1)
+            });
+
             Assert.Equal(locals.Count, 0);
             locals.Free();
         }
@@ -1546,11 +1707,16 @@ public struct B
     {
     }
 }";
-            var compilation0 = CreateCompilationWithMscorlib(source0, options: TestOptions.DebugDll);
+            var compilation0 = CreateCompilationWithMscorlib(
+                source0,
+                options: TestOptions.DebugDll,
+                assemblyName: "Comp1");
+
             var compilation1 = CreateCompilationWithMscorlib(
                 source1,
                 options: TestOptions.DebugDll,
                 references: new[] { compilation0.EmitToImageReference() });
+
             byte[] exeBytes;
             byte[] pdbBytes;
             ImmutableArray<MetadataReference> references;
@@ -1560,13 +1726,21 @@ public struct B
                 ImmutableArray.Create(MscorlibRef), // no reference to compilation0
                 exeBytes,
                 new SymReader(pdbBytes));
+
             var context = CreateMethodContext(
                 runtime,
                 methodName: "C.M");
+
             var testData = new CompilationTestData();
             var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
             string typeName;
-            context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
+
+            context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData, expectedDiagnostics: new[]
+            {
+                // error CS0012: The type 'I' is defined in an assembly that is not referenced. You must add a reference to assembly 'Comp1, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'.
+                Diagnostic(ErrorCode.ERR_NoTypeDef).WithArguments("I", "Comp1, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").WithLocation(1, 1)
+            });
+
             Assert.Equal(locals.Count, 0);
             locals.Free();
         }
@@ -1633,15 +1807,14 @@ class C
 
         [WorkItem(1015887)]
         [Fact]
-        public void LocalDateTimeConstant()
+        public void LocalDoubleConstant()
         {
             var source = @"
 class C
 {
     static void M()
     {
-        const double d = 2.74745778612482E-266; // We'll change the signature using a test hook.
-        System.DateTime dt = new System.DateTime(2010, 1, 2); // It's easier to figure out the signature to pass if this is here.
+        const double d = 2.74745778612482E-266;
     }
 }
 ";
@@ -1651,38 +1824,66 @@ class C
             ImmutableArray<MetadataReference> references;
             comp.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
 
-            // We're going to override the true signature (i.e. double) with one indicating
-            // that the constant is a System.DateTime.
-            var constantSignatures = new Dictionary<string, byte[]>
-            {
-                { "d", new byte[] {0x11, 0x19} },
-            }.ToImmutableDictionary();
-            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, constantSignatures));
+            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, exeBytes));
             var context = CreateMethodContext(
                 runtime,
                 methodName: "C.M");
 
-            string errorMessage;
             var testData = new CompilationTestData();
-            context.CompileAssignment("d", "default(System.DateTime)", out errorMessage, testData);
-            Assert.Equal("error CS0131: The left-hand side of an assignment must be a variable, property or indexer", errorMessage);
-
             var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
             string typeName;
             context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
-            Assert.Equal(2, locals.Count);
-            VerifyLocal(testData, typeName, locals[0], "<>m0", "dt");
-            VerifyLocal(testData, typeName, locals[1], "<>m1", "d", DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
+            Assert.Equal(1, locals.Count);
+            VerifyLocal(testData, typeName, locals[0], "<>m0", "d", DkmClrCompilationResultFlags.ReadOnlyResult, expectedILOpt:
 @"{
-  // Code size       15 (0xf)
+  // Code size       10 (0xa)
   .maxstack  1
-  .locals init (System.DateTime V_0) //dt
-  IL_0000:  ldc.i8     0x8cc5955a94ec006
-  IL_0009:  newobj     ""System.DateTime..ctor(long)""
-  IL_000e:  ret
+  IL_0000:  ldc.r8     2.74745778612482E-266
+  IL_0009:  ret
 }");
-            // NB: We should actually see 0x8cc5955a94ec000, but the double literal is not precise enough to get the last place right.
-            // We can't use a more precise representation and still have the compiler accept it as a constant value.
+        }
+
+        [WorkItem(1015887)]
+        [Fact]
+        public void LocalByteConstant()
+        {
+            var source = @"
+class C
+{
+    static void M()
+    {
+        const byte b = 254;
+        byte c = 0;
+    }
+}
+";
+            var comp = CreateCompilationWithMscorlib(source, options: TestOptions.DebugDll);
+            byte[] exeBytes;
+            byte[] pdbBytes;
+            ImmutableArray<MetadataReference> references;
+            comp.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
+
+            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, exeBytes));
+            var context = CreateMethodContext(
+                runtime,
+                methodName: "C.M");
+
+            var testData = new CompilationTestData();
+
+            string error;
+            context.CompileAssignment("c", "(byte)(b + 3)", out error, testData);
+            Assert.Null(error);
+
+            testData.GetMethodData("<>x.<>m0").VerifyIL(@"
+{
+  // Code size        3 (0x3)
+  .maxstack  1
+  .locals init (byte V_0) //c
+  IL_0000:  ldc.i4.1
+  IL_0001:  stloc.0
+  IL_0002:  ret
+}
+");
         }
 
         [WorkItem(1015887)]
@@ -1704,11 +1905,7 @@ class C
             ImmutableArray<MetadataReference> references;
             comp.EmitAndGetReferences(out exeBytes, out pdbBytes, out references);
 
-            var constantSignatures = new Dictionary<string, byte[]>
-            {
-                { "d", new byte[] {0x11, 0x19} },
-            }.ToImmutableDictionary();
-            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, constantSignatures));
+            var runtime = CreateRuntimeInstance(ExpressionCompilerUtilities.GenerateUniqueName(), references, exeBytes, new SymReader(pdbBytes, exeBytes));
             var context = CreateMethodContext(
                 runtime,
                 methodName: "C.M");
@@ -2329,6 +2526,179 @@ class C<T>
             GetLocals(runtime, "C." + displayClassName + ".MoveNext", argumentsOnly: true, locals: locals, count: 0, typeName: out typeName, testData: out testData);
             locals.Clear();
 
+            locals.Free();
+        }
+
+        [WorkItem(1115030)]
+        [Fact]
+        public void CatchInAsyncStateMachine()
+        {
+            var source =
+@"using System;
+using System.Threading.Tasks;
+class C
+{
+    static object F()
+    {
+        throw new ArgumentException();
+    }
+    static async Task M()
+    {
+        object o;
+        try
+        {
+            o = F();
+        }
+        catch (Exception e)
+        {
+#line 999
+            o = e;
+        }
+    }
+}";
+            var compilation0 = CreateCompilationWithMscorlib45(source, options: TestOptions.DebugDll);
+            var runtime = CreateRuntimeInstance(compilation0);
+            var context = CreateMethodContext(
+                runtime,
+                methodName: "C.<M>d__1.MoveNext",
+                atLineNumber: 999);
+            var testData = new CompilationTestData();
+            var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
+            string typeName;
+            var assembly = context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
+            VerifyLocal(testData, typeName, locals[0], "<>m0", "o", expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  .locals init (int V_0,
+                System.Exception V_1)
+  IL_0000:  ldarg.0
+  IL_0001:  ldfld      ""object C.<M>d__1.<o>5__1""
+  IL_0006:  ret
+}");
+            VerifyLocal(testData, typeName, locals[1], "<>m1", "e", expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  .locals init (int V_0,
+                System.Exception V_1)
+  IL_0000:  ldarg.0
+  IL_0001:  ldfld      ""System.Exception C.<M>d__1.<e>5__2""
+  IL_0006:  ret
+}");
+            locals.Free();
+        }
+
+        [WorkItem(1115030)]
+        [Fact]
+        public void CatchInIteratorStateMachine()
+        {
+            var source =
+@"using System;
+using System.Collections;
+class C
+{
+    static object F()
+    {
+        throw new ArgumentException();
+    }
+    static IEnumerable M()
+    {
+        object o;
+        try
+        {
+            o = F();
+        }
+        catch (Exception e)
+        {
+#line 999
+            o = e;
+        }
+        yield return o;
+    }
+}";
+            var compilation0 = CreateCompilationWithMscorlib45(source, options: TestOptions.DebugDll);
+            var runtime = CreateRuntimeInstance(compilation0);
+            var context = CreateMethodContext(
+                runtime,
+                methodName: "C.<M>d__1.MoveNext",
+                atLineNumber: 999);
+            var testData = new CompilationTestData();
+            var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
+            string typeName;
+            var assembly = context.CompileGetLocals(locals, argumentsOnly: false, typeName: out typeName, testData: testData);
+            VerifyLocal(testData, typeName, locals[0], "<>m0", "o", expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  .locals init (int V_0,
+                bool V_1,
+                System.Exception V_2)
+  IL_0000:  ldarg.0
+  IL_0001:  ldfld      ""object C.<M>d__1.<o>5__1""
+  IL_0006:  ret
+}");
+            VerifyLocal(testData, typeName, locals[1], "<>m1", "e", expectedILOpt:
+@"{
+  // Code size        7 (0x7)
+  .maxstack  1
+  .locals init (int V_0,
+                bool V_1,
+                System.Exception V_2)
+  IL_0000:  ldarg.0
+  IL_0001:  ldfld      ""System.Exception C.<M>d__1.<e>5__2""
+  IL_0006:  ret
+}");
+            locals.Free();
+        }
+
+        [WorkItem(947)]
+        [Fact]
+        public void DuplicateEditorBrowsableAttributes()
+        {
+            const string libSource = @"
+namespace System.ComponentModel
+{
+    public enum EditorBrowsableState
+    {
+        Always = 0,
+        Never = 1,
+        Advanced = 2
+    }
+
+    [AttributeUsage(AttributeTargets.All)]
+    internal sealed class EditorBrowsableAttribute : Attribute
+    {
+        public EditorBrowsableAttribute(EditorBrowsableState state) { }
+    }
+}
+";
+
+            const string source = @"
+[global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
+class C
+{
+    void M()
+    {
+    }
+}
+";
+            var libRef = CreateCompilationWithMscorlib(libSource).EmitToImageReference();
+            var comp = CreateCompilationWithMscorlib(source, new[] { SystemRef }, TestOptions.DebugDll);
+
+            byte[] exeBytes;
+            byte[] pdbBytes;
+            ImmutableArray<MetadataReference> unusedReferences;
+            var result = comp.EmitAndGetReferences(out exeBytes, out pdbBytes, out unusedReferences);
+            Assert.True(result);
+
+            var runtime = CreateRuntimeInstance(GetUniqueName(), ImmutableArray.Create(MscorlibRef, SystemRef, SystemCoreRef, SystemXmlLinqRef, libRef), exeBytes, new SymReader(pdbBytes));
+
+            string typeName;
+            var locals = ArrayBuilder<LocalAndMethod>.GetInstance();
+            CompilationTestData testData;
+            GetLocals(runtime, "C.M", argumentsOnly: false, locals: locals, count: 1, typeName: out typeName, testData: out testData);
+            Assert.Equal("this", locals.Single().LocalName);
             locals.Free();
         }
 

@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 extern alias PDB;
 
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,6 +23,7 @@ using PDB::Roslyn.Test.PdbUtilities;
 using Roslyn.Utilities;
 using Xunit;
 using ProprietaryTestResources = Microsoft.CodeAnalysis.Test.Resources.Proprietary;
+using System.Reflection.PortableExecutable;
 
 namespace Roslyn.Test.Utilities
 {
@@ -30,10 +32,10 @@ namespace Roslyn.Test.Utilities
     /// </summary>
     public abstract class TestBase : IDisposable
     {
-        private TempRoot temp;
+        private TempRoot _temp;
 
-        static MetadataReference[] _WinRtRefs;
-        static MetadataReference[] _PortableRefsMinimal;
+        private static MetadataReference[] s_winRtRefs;
+        private static MetadataReference[] s_portableRefsMinimal;
 
         /// <summary>
         /// The array of 7 metadataimagereferences that are required to compile
@@ -43,13 +45,13 @@ namespace Roslyn.Test.Utilities
         {
             get
             {
-                if (_WinRtRefs == null)
+                if (s_winRtRefs == null)
                 {
                     var winmd = AssemblyMetadata.CreateFromImage(TestResources.WinRt.Windows).GetReference(display: "Windows");
-                    
+
                     var windowsruntime =
                         AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.System_Runtime_WindowsRuntime).GetReference(display: "System.Runtime.WindowsRuntime.dll");
-                                                    
+
                     var runtime =
                         AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.System_Runtime).GetReference(display: "System.Runtime.dll");
 
@@ -69,13 +71,11 @@ namespace Roslyn.Test.Utilities
 
                     var mscor = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30316_17626.mscorlib).GetReference(display: "mscorlib");
 
-                    _WinRtRefs = new MetadataReference[] { winmd, windowsruntime, runtime, objectModel, uixaml, interop, system, mscor };
+                    s_winRtRefs = new MetadataReference[] { winmd, windowsruntime, runtime, objectModel, uixaml, interop, system, mscor };
                 }
 
-                return _WinRtRefs;
-
+                return s_winRtRefs;
             }
-
         }
 
         /// <summary>
@@ -85,15 +85,12 @@ namespace Roslyn.Test.Utilities
         {
             get
             {
-                if (_PortableRefsMinimal == null)
+                if (s_portableRefsMinimal == null)
                 {
-                    var mscorlibPortable = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_PortableProfile7.mscorlib).GetReference(display: "mscorlib.dll");
-                    var systemRuntimePortable = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_PortableProfile7.System_Runtime).GetReference(display: "System.Runtime.dll");
-
-                    _PortableRefsMinimal = new MetadataReference[] { mscorlibPortable, systemRuntimePortable };
+                    s_portableRefsMinimal = new MetadataReference[] { MscorlibPP7Ref, SystemRuntimePP7Ref };
                 }
 
-                return _PortableRefsMinimal;
+                return s_portableRefsMinimal;
             }
         }
 
@@ -132,315 +129,372 @@ namespace Roslyn.Test.Utilities
             get { return SystemCoreRef; }
         }
 
-        private static MetadataReference _systemCoreRef_v4_0_30319_17929;
+        private static MetadataReference s_systemCoreRef_v4_0_30319_17929;
         public static MetadataReference SystemCoreRef_v4_0_30319_17929
         {
             get
             {
-                if (_systemCoreRef_v4_0_30319_17929 == null)
+                if (s_systemCoreRef_v4_0_30319_17929 == null)
                 {
-                    _systemCoreRef_v4_0_30319_17929 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.System_Core).GetReference(display: "System.Core.v4_0_30319_17929.dll");
+                    s_systemCoreRef_v4_0_30319_17929 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.System_Core).GetReference(display: "System.Core.v4_0_30319_17929.dll");
                 }
 
-                return _systemCoreRef_v4_0_30319_17929;
+                return s_systemCoreRef_v4_0_30319_17929;
             }
         }
 
-        private static MetadataReference _systemCoreRef;
+        private static MetadataReference s_systemCoreRef;
         public static MetadataReference SystemCoreRef
         {
             get
             {
-                if (_systemCoreRef == null)
+                if (s_systemCoreRef == null)
                 {
-                    _systemCoreRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Core).GetReference(display: "System.Core.v4_0_30319.dll");
+                    s_systemCoreRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Core).GetReference(display: "System.Core.v4_0_30319.dll");
                 }
 
-                return _systemCoreRef;
+                return s_systemCoreRef;
             }
         }
 
-        private static MetadataReference _systemWindowsFormsRef;
+        private static MetadataReference s_systemWindowsFormsRef;
         public static MetadataReference SystemWindowsFormsRef
         {
             get
             {
-                if (_systemWindowsFormsRef == null)
+                if (s_systemWindowsFormsRef == null)
                 {
-                    _systemWindowsFormsRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Windows_Forms).GetReference(display: "System.Windows.Forms.v4_0_30319.dll");
+                    s_systemWindowsFormsRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Windows_Forms).GetReference(display: "System.Windows.Forms.v4_0_30319.dll");
                 }
 
-                return _systemWindowsFormsRef;
+                return s_systemWindowsFormsRef;
             }
         }
 
-        private static MetadataReference _systemDrawingRef;
+        private static MetadataReference s_systemDrawingRef;
         public static MetadataReference SystemDrawingRef
         {
             get
             {
-                if (_systemDrawingRef == null)
+                if (s_systemDrawingRef == null)
                 {
-                    _systemDrawingRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Drawing).GetReference(display: "System.Drawing.v4_0_30319.dll");
+                    s_systemDrawingRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Drawing).GetReference(display: "System.Drawing.v4_0_30319.dll");
                 }
 
-                return _systemDrawingRef;
+                return s_systemDrawingRef;
             }
         }
 
-        private static MetadataReference _systemDataRef;
+        private static MetadataReference s_systemDataRef;
         public static MetadataReference SystemDataRef
         {
             get
             {
-                if (_systemDataRef == null)
+                if (s_systemDataRef == null)
                 {
-                    _systemDataRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Data).GetReference(display: "System.Data.v4_0_30319.dll");
+                    s_systemDataRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Data).GetReference(display: "System.Data.v4_0_30319.dll");
                 }
 
-                return _systemDataRef;
+                return s_systemDataRef;
             }
         }
 
-        private static MetadataReference _mscorlibRef;
+        private static MetadataReference s_mscorlibRef;
         public static MetadataReference MscorlibRef
         {
             get
             {
-                if (_mscorlibRef == null)
+                if (s_mscorlibRef == null)
                 {
-                    _mscorlibRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.mscorlib).GetReference(display: "mscorlib.v4_0_30319.dll");
+                    s_mscorlibRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.mscorlib).GetReference(display: "mscorlib.v4_0_30319.dll");
                 }
 
-                return _mscorlibRef;
+                return s_mscorlibRef;
             }
         }
 
-        private static MetadataReference _mscorlibRefPortable;
+        private static MetadataReference s_mscorlibRefPortable;
         public static MetadataReference MscorlibRefPortable
         {
             get
             {
-                if (_mscorlibRefPortable == null)
+                if (s_mscorlibRefPortable == null)
                 {
-                    _mscorlibRefPortable = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.mscorlib_portable).GetReference(display: "mscorlib.v4_0_30319.portable.dll");
+                    s_mscorlibRefPortable = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.mscorlib_portable).GetReference(display: "mscorlib.v4_0_30319.portable.dll");
                 }
 
-                return _mscorlibRefPortable;
+                return s_mscorlibRefPortable;
             }
         }
 
-        private static MetadataReference _aacorlibRef;
+        private static MetadataReference s_aacorlibRef;
         public static MetadataReference AacorlibRef
         {
             get
             {
-                if (_aacorlibRef == null)
+                if (s_aacorlibRef == null)
                 {
-                    _aacorlibRef = AssemblyMetadata.CreateFromImage(TestResources.NetFX.aacorlib_v15_0_3928.aacorlib_v15_0_3928).GetReference(display: "mscorlib.v4_0_30319.dll");
+                    var source = TestResources.NetFX.aacorlib_v15_0_3928.aacorlib_v15_0_3928_cs;
+                    var syntaxTree = Microsoft.CodeAnalysis.CSharp.SyntaxFactory.ParseSyntaxTree(source);
+
+                    var compilationOptions = new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+
+                    var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("aacorlib.v15.0.3928.dll", new[] { syntaxTree }, null, compilationOptions);
+
+                    Stream dllStream = new MemoryStream();
+                    var emitResult = compilation.Emit(dllStream);
+                    if (!emitResult.Success)
+                    {
+                        emitResult.Diagnostics.Verify();
+                    }
+                    dllStream.Seek(0, SeekOrigin.Begin);
+
+                    s_aacorlibRef = AssemblyMetadata.CreateFromStream(dllStream).GetReference(display: "mscorlib.v4_0_30319.dll");
                 }
 
-                return _aacorlibRef;
+                return s_aacorlibRef;
             }
         }
 
-        private static MetadataReference _mscorlibRef_v4_0_30316_17626;
+        private static MetadataReference s_mscorlibRef_v4_0_30316_17626;
         public static MetadataReference MscorlibRef_v4_0_30316_17626
         {
             get
             {
-                if (_mscorlibRef_v4_0_30316_17626 == null)
+                if (s_mscorlibRef_v4_0_30316_17626 == null)
                 {
-                    _mscorlibRef_v4_0_30316_17626 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30316_17626.mscorlib).GetReference(display: "mscorlib.v4_0_30319_17626.dll", filePath: @"Z:\FxReferenceAssembliesUri");
+                    s_mscorlibRef_v4_0_30316_17626 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30316_17626.mscorlib).GetReference(display: "mscorlib.v4_0_30319_17626.dll", filePath: @"Z:\FxReferenceAssembliesUri");
                 }
 
-                return _mscorlibRef_v4_0_30316_17626;
+                return s_mscorlibRef_v4_0_30316_17626;
             }
         }
 
-        private static MetadataReference _mscorlibRef_v20;
+        private static MetadataReference s_mscorlibRef_v20;
         public static MetadataReference MscorlibRef_v20
         {
             get
             {
-                if (_mscorlibRef_v20 == null)
+                if (s_mscorlibRef_v20 == null)
                 {
-                    _mscorlibRef_v20 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v2_0_50727.mscorlib).GetReference(display: "mscorlib.v2.0.50727.dll");
+                    s_mscorlibRef_v20 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v2_0_50727.mscorlib).GetReference(display: "mscorlib.v2.0.50727.dll");
                 }
 
-                return _mscorlibRef_v20;
+                return s_mscorlibRef_v20;
             }
         }
 
         /// <summary>
         /// Reference to an mscorlib silverlight assembly in which the System.Array does not contain the special member LongLength.
         /// </summary>
-        private static MetadataReference _mscorlibRef_silverlight;
+        private static MetadataReference s_mscorlibRef_silverlight;
         public static MetadataReference MscorlibRefSilverlight
         {
             get
             {
-                if (_mscorlibRef_silverlight == null)
+                if (s_mscorlibRef_silverlight == null)
                 {
-                    _mscorlibRef_silverlight = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.silverlight_v5_0_5_0.mscorlib_v5_0_5_0_silverlight).GetReference(display: "mscorlib.v5.0.5.0_silverlight.dll");
+                    s_mscorlibRef_silverlight = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.silverlight_v5_0_5_0.mscorlib_v5_0_5_0_silverlight).GetReference(display: "mscorlib.v5.0.5.0_silverlight.dll");
                 }
 
-                return _mscorlibRef_silverlight;
+                return s_mscorlibRef_silverlight;
             }
         }
 
-        private static MetadataReference _minCorlibRef;
+        private static MetadataReference s_minCorlibRef;
         public static MetadataReference MinCorlibRef
         {
             get
             {
-                if (_minCorlibRef == null)
+                if (s_minCorlibRef == null)
                 {
-                    _minCorlibRef = AssemblyMetadata.CreateFromImage(TestResources.NetFX.Minimal.mincorlib).GetReference(display: "minCorLib.dll");
+                    s_minCorlibRef = AssemblyMetadata.CreateFromImage(TestResources.NetFX.Minimal.mincorlib).GetReference(display: "minCorLib.dll");
                 }
 
-                return _minCorlibRef;
+                return s_minCorlibRef;
             }
         }
 
-        private static MetadataReference _MsvbRef;
+        private static MetadataReference s_msvbRef;
         public static MetadataReference MsvbRef
         {
             get
             {
-                if (_MsvbRef == null)
+                if (s_msvbRef == null)
                 {
-                    _MsvbRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.Microsoft_VisualBasic).GetReference(display: "Microsoft.VisualBasic.v4_0_30319.dll");
+                    s_msvbRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.Microsoft_VisualBasic).GetReference(display: "Microsoft.VisualBasic.v4_0_30319.dll");
                 }
 
-                return _MsvbRef;
+                return s_msvbRef;
             }
         }
 
-        private static MetadataReference _MsvbRef_v4_0_30319_17929;
+        private static MetadataReference s_msvbRef_v4_0_30319_17929;
         public static MetadataReference MsvbRef_v4_0_30319_17929
         {
             get
             {
-                if (_MsvbRef_v4_0_30319_17929 == null)
+                if (s_msvbRef_v4_0_30319_17929 == null)
                 {
-                    _MsvbRef_v4_0_30319_17929 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.Microsoft_VisualBasic).GetReference(display: "Microsoft.VisualBasic.v4_0_30319_17929.dll");
+                    s_msvbRef_v4_0_30319_17929 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.Microsoft_VisualBasic).GetReference(display: "Microsoft.VisualBasic.v4_0_30319_17929.dll");
                 }
 
-                return _MsvbRef_v4_0_30319_17929;
+                return s_msvbRef_v4_0_30319_17929;
             }
         }
 
-        private static MetadataReference csharpRef;
+        private static MetadataReference s_csharpRef;
         public static MetadataReference CSharpRef
         {
             get
             {
-                if (csharpRef == null)
+                if (s_csharpRef == null)
                 {
-                    csharpRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.Microsoft_CSharp).GetReference(display: "Microsoft.CSharp.v4.0.30319.dll");
+                    s_csharpRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.Microsoft_CSharp).GetReference(display: "Microsoft.CSharp.v4.0.30319.dll");
                 }
 
-                return csharpRef;
+                return s_csharpRef;
             }
         }
 
 
-        private static MetadataReference _SystemRef;
+        private static MetadataReference s_systemRef;
         public static MetadataReference SystemRef
         {
             get
             {
-                if (_SystemRef == null)
+                if (s_systemRef == null)
                 {
-                    _SystemRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System).GetReference(display: "System.v4_0_30319.dll");
+                    s_systemRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System).GetReference(display: "System.v4_0_30319.dll");
                 }
 
-                return _SystemRef;
+                return s_systemRef;
             }
         }
 
-        private static MetadataReference _SystemRef_v4_0_30319_17929;
+        private static MetadataReference s_systemRef_v4_0_30319_17929;
         public static MetadataReference SystemRef_v4_0_30319_17929
         {
             get
             {
-                if (_SystemRef_v4_0_30319_17929 == null)
+                if (s_systemRef_v4_0_30319_17929 == null)
                 {
-                    _SystemRef_v4_0_30319_17929 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.System).GetReference(display: "System.v4_0_30319_17929.dll");
+                    s_systemRef_v4_0_30319_17929 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319_17929.System).GetReference(display: "System.v4_0_30319_17929.dll");
                 }
 
-                return _SystemRef_v4_0_30319_17929;
+                return s_systemRef_v4_0_30319_17929;
             }
         }
 
-        private static MetadataReference _SystemRef_v20;
+        private static MetadataReference s_systemRef_v20;
         public static MetadataReference SystemRef_v20
         {
             get
             {
-                if (_SystemRef_v20 == null)
+                if (s_systemRef_v20 == null)
                 {
-                    _SystemRef_v20 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v2_0_50727.System).GetReference(display: "System.v2_0_50727.dll");
+                    s_systemRef_v20 = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v2_0_50727.System).GetReference(display: "System.v2_0_50727.dll");
                 }
 
-                return _SystemRef_v20;
+                return s_systemRef_v20;
             }
         }
 
-        private static MetadataReference _SystemXmlRef;
+        private static MetadataReference s_systemXmlRef;
         public static MetadataReference SystemXmlRef
         {
             get
             {
-                if (_SystemXmlRef == null)
+                if (s_systemXmlRef == null)
                 {
-                    _SystemXmlRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Xml).GetReference(display: "System.Xml.v4_0_30319.dll");
+                    s_systemXmlRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Xml).GetReference(display: "System.Xml.v4_0_30319.dll");
                 }
 
-                return _SystemXmlRef;
+                return s_systemXmlRef;
             }
         }
 
-        private static MetadataReference _SystemXmlLinqRef;
+        private static MetadataReference s_systemXmlLinqRef;
         public static MetadataReference SystemXmlLinqRef
         {
             get
             {
-                if (_SystemXmlLinqRef == null)
+                if (s_systemXmlLinqRef == null)
                 {
-                    _SystemXmlLinqRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Xml_Linq).GetReference(display: "System.Xml.Linq.v4_0_30319.dll");
+                    s_systemXmlLinqRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.v4_0_30319.System_Xml_Linq).GetReference(display: "System.Xml.Linq.v4_0_30319.dll");
                 }
 
-                return _SystemXmlLinqRef;
+                return s_systemXmlLinqRef;
             }
         }
 
-        private static MetadataReference _FacadeSystemRuntimeRef;
-        public static MetadataReference FacadeSystemRuntimeRef
+        private static MetadataReference s_mscorlibFacadeRef;
+        public static MetadataReference MscorlibFacadeRef
         {
             get
             {
-                if (_FacadeSystemRuntimeRef == null)
+                if (s_mscorlibFacadeRef == null)
                 {
-                    _FacadeSystemRuntimeRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_V45_Facades.System_Runtime).GetReference(display: "System.Runtime.dll");
+                    s_mscorlibFacadeRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_V45.mscorlib).GetReference(display: "mscorlib.dll");
                 }
 
-                return _FacadeSystemRuntimeRef;
+                return s_mscorlibFacadeRef;
             }
         }
 
-        private static MetadataReference _FSharpTestLibraryRef;
+        private static MetadataReference s_systemRuntimeFacadeRef;
+        public static MetadataReference SystemRuntimeFacadeRef
+        {
+            get
+            {
+                if (s_systemRuntimeFacadeRef == null)
+                {
+                    s_systemRuntimeFacadeRef = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_V45_Facades.System_Runtime).GetReference(display: "System.Runtime.dll");
+                }
+
+                return s_systemRuntimeFacadeRef;
+            }
+        }
+
+        private static MetadataReference s_mscorlibPP7Ref;
+        public static MetadataReference MscorlibPP7Ref
+        {
+            get
+            {
+                if (s_mscorlibPP7Ref == null)
+                {
+                    s_mscorlibPP7Ref = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_PortableProfile7.mscorlib).GetReference(display: "mscorlib.dll");
+                }
+
+                return s_mscorlibPP7Ref;
+            }
+        }
+
+        private static MetadataReference s_systemRuntimePP7Ref;
+        public static MetadataReference SystemRuntimePP7Ref
+        {
+            get
+            {
+                if (s_systemRuntimePP7Ref == null)
+                {
+                    s_systemRuntimePP7Ref = AssemblyMetadata.CreateFromImage(ProprietaryTestResources.NetFX.ReferenceAssemblies_PortableProfile7.System_Runtime).GetReference(display: "System.Runtime.dll");
+                }
+
+                return s_systemRuntimePP7Ref;
+            }
+        }
+
+        private static MetadataReference s_FSharpTestLibraryRef;
         public static MetadataReference FSharpTestLibraryRef
         {
             get
             {
-                if (_FSharpTestLibraryRef == null)
+                if (s_FSharpTestLibraryRef == null)
                 {
-                    _FSharpTestLibraryRef = AssemblyMetadata.CreateFromImage(TestResources.SymbolsTests.General.FSharpTestLibrary).GetReference(display: "FSharpTestLibrary.dll");
+                    s_FSharpTestLibraryRef = AssemblyMetadata.CreateFromImage(TestResources.SymbolsTests.General.FSharpTestLibrary).GetReference(display: "FSharpTestLibrary.dll");
                 }
 
-                return _FSharpTestLibraryRef;
+                return s_FSharpTestLibraryRef;
             }
         }
 
@@ -454,20 +508,20 @@ namespace Roslyn.Test.Utilities
         {
             get
             {
-                if (temp == null)
+                if (_temp == null)
                 {
-                    temp = new TempRoot();
+                    _temp = new TempRoot();
                 }
 
-                return temp;
+                return _temp;
             }
         }
 
         public virtual void Dispose()
         {
-            if (temp != null)
+            if (_temp != null)
             {
-                temp.Dispose();
+                _temp.Dispose();
             }
         }
 
@@ -547,7 +601,7 @@ namespace Roslyn.Test.Utilities
         /// <summary>
         /// Used to validate metadata blobs emitted for MarshalAs.
         /// </summary>
-        internal static void MarshalAsMetadataValidator(PEAssembly assembly, Func<string, PEAssembly, TestEmitters, byte[]> getExpectedBlob, TestEmitters emitOptions, bool isField = true)
+        internal static void MarshalAsMetadataValidator(PEAssembly assembly, Func<string, PEAssembly, TestEmitters, byte[]> getExpectedBlob, TestEmitters emitters, bool isField = true)
         {
             var metadataReader = assembly.GetMetadataReader();
 
@@ -567,7 +621,7 @@ namespace Roslyn.Test.Utilities
                     var field = metadataReader.GetFieldDefinition(fieldDef);
                     string fieldName = metadataReader.GetString(field.Name);
 
-                    byte[] expectedBlob = getExpectedBlob(fieldName, assembly, emitOptions);
+                    byte[] expectedBlob = getExpectedBlob(fieldName, assembly, emitters);
                     if (expectedBlob != null)
                     {
                         BlobHandle descriptor = metadataReader.GetFieldDefinition(fieldDef).GetMarshallingDescriptor();
@@ -597,7 +651,7 @@ namespace Roslyn.Test.Utilities
                         var paramRow = metadataReader.GetParameter(paramHandle);
                         string paramName = metadataReader.GetString(paramRow.Name);
 
-                        byte[] expectedBlob = getExpectedBlob(memberName + ":" + paramName, assembly, emitOptions);
+                        byte[] expectedBlob = getExpectedBlob(memberName + ":" + paramName, assembly, emitters);
                         if (expectedBlob != null)
                         {
                             Assert.NotEqual(0, (int)(paramRow.Attributes & ParameterAttributes.HasFieldMarshal));
@@ -667,21 +721,7 @@ namespace Roslyn.Test.Utilities
 
         public static string GetPdbXml(Compilation compilation, string qualifiedMethodName = "")
         {
-            string actual = null;
-            using (var exebits = new MemoryStream())
-            {
-                using (var pdbbits = new MemoryStream())
-                {
-                    compilation.Emit(exebits, pdbbits);
-
-                    pdbbits.Position = 0;
-                    exebits.Position = 0;
-
-                    actual = PdbToXmlConverter.ToXml(pdbbits, exebits, PdbToXmlOptions.ResolveTokens | PdbToXmlOptions.ThrowOnError, methodName: qualifiedMethodName);
-                }
-            }
-
-            return actual;
+            return SharedCompilationUtils.GetPdbXml(compilation, qualifiedMethodName);
         }
 
         public static Dictionary<int, string> GetMarkers(string pdbXml)
@@ -750,16 +790,6 @@ namespace Roslyn.Test.Utilities
                     return Token2SourceLineExporter.TokenToSourceMap2Xml(pdbbits, maskToken);
                 }
             }
-        }
-
-        public static void AssertXmlEqual(string expected, string actual)
-        {
-            XmlElementDiff.AssertEqual(XElement.Parse(expected), XElement.Parse(actual), null, 0, expectedIsXmlLiteral: true);
-        }
-
-        public static void AssertXmlEqual(XElement expected, XElement actual)
-        {
-            XmlElementDiff.AssertEqual(expected, actual, null, 0, expectedIsXmlLiteral: false);
         }
 
         protected static string ConsolidateArguments(string[] args)

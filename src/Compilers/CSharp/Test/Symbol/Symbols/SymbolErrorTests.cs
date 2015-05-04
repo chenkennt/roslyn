@@ -5306,7 +5306,7 @@ namespace NS
                 );
         }
 
-        [Fact()]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         [WorkItem(568953, "DevDiv")]
         public void CS0436WRN_SameFullNameThisAggAgg_01()
         {
@@ -5345,7 +5345,7 @@ namespace NS
                     new CSharpCompilationReference(lib)
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
     // (9,38): warning CS0436: The type 'NS.Util' in 'ErrTestMod01.netmodule' conflicts with the imported type 'NS.Util' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'ErrTestMod01.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisAggAgg, "Util").WithArguments("ErrTestMod01.netmodule", "NS.Util", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util")
@@ -5358,14 +5358,14 @@ namespace NS
                     MetadataReference.CreateFromImage(lib.EmitToArray())
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
     // (9,38): warning CS0436: The type 'NS.Util' in 'ErrTestMod01.netmodule' conflicts with the imported type 'NS.Util' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'ErrTestMod01.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisAggAgg, "Util").WithArguments("ErrTestMod01.netmodule", "NS.Util", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util")
                 );
         }
 
-        [Fact()]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         [WorkItem(568953, "DevDiv")]
         public void CS0436WRN_SameFullNameThisAggAgg_02()
         {
@@ -5404,7 +5404,7 @@ namespace NS
                     new CSharpCompilationReference(lib)
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
     // (9,43): warning CS0436: The type 'NS.Util.A' in 'ErrTestMod02.netmodule' conflicts with the imported type 'NS.Util.A' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'ErrTestMod02.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisAggAgg, "A").WithArguments("ErrTestMod02.netmodule", "NS.Util.A", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util.A")
@@ -5417,14 +5417,14 @@ namespace NS
                     MetadataReference.CreateFromImage(lib.EmitToArray())
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
     // (9,43): warning CS0436: The type 'NS.Util.A' in 'ErrTestMod02.netmodule' conflicts with the imported type 'NS.Util.A' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'ErrTestMod02.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisAggAgg, "A").WithArguments("ErrTestMod02.netmodule", "NS.Util.A", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util.A")
                 );
         }
 
-        [Fact()]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         [WorkItem(568953, "DevDiv")]
         public void CS0435WRN_SameFullNameThisNsAgg_01()
         {
@@ -5463,7 +5463,7 @@ namespace NS
                     new CSharpCompilationReference(lib)
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
     // (9,38): warning CS0435: The namespace 'NS.Util' in 'ErrTestMod02.netmodule' conflicts with the imported type 'NS.Util' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the namespace defined in 'ErrTestMod02.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisNsAgg, "Util").WithArguments("ErrTestMod02.netmodule", "NS.Util", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util")
@@ -5476,14 +5476,14 @@ namespace NS
                     MetadataReference.CreateFromImage(lib.EmitToArray())
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod02.netmodule").VerifyDiagnostics(
     // (9,38): warning CS0435: The namespace 'NS.Util' in 'ErrTestMod02.netmodule' conflicts with the imported type 'NS.Util' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the namespace defined in 'ErrTestMod02.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisNsAgg, "Util").WithArguments("ErrTestMod02.netmodule", "NS.Util", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util")
                 );
         }
 
-        [Fact()]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         [WorkItem(568953, "DevDiv")]
         public void CS0437WRN_SameFullNameThisAggNs_01()
         {
@@ -5522,7 +5522,7 @@ namespace NS
                     new CSharpCompilationReference(lib)
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
     // (9,38): warning CS0437: The type 'NS.Util' in 'ErrTestMod01.netmodule' conflicts with the imported namespace 'NS.Util' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'ErrTestMod01.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisAggNs, "Util").WithArguments("ErrTestMod01.netmodule", "NS.Util", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util")
@@ -5535,7 +5535,7 @@ namespace NS
                     MetadataReference.CreateFromImage(lib.EmitToArray())
                 }, options: TestOptions.ReleaseExe);
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
+            CompileAndVerify(comp, emitters: TestEmitters.CCI, expectedOutput: "ErrTestMod01.netmodule").VerifyDiagnostics(
     // (9,38): warning CS0437: The type 'NS.Util' in 'ErrTestMod01.netmodule' conflicts with the imported namespace 'NS.Util' in 'Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'ErrTestMod01.netmodule'.
     //             Console.WriteLine(typeof(Util.A).Module);   
     Diagnostic(ErrorCode.WRN_SameFullNameThisAggNs, "Util").WithArguments("ErrTestMod01.netmodule", "NS.Util", "Lib, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", "NS.Util")
@@ -5676,7 +5676,7 @@ namespace NS
                     s_mod2.GetReference(),
                 });
 
-            CompileAndVerify(comp, emitOptions: TestEmitters.CCI).VerifyDiagnostics();
+            CompileAndVerify(comp, emitters: TestEmitters.CCI).VerifyDiagnostics();
         }
 
         [Fact()]
@@ -6483,7 +6483,7 @@ namespace NS
                 Diagnostic(ErrorCode.ERR_DuplicateNameInNS).WithArguments("Util", "NS"));
         }
 
-        [Fact()]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         [WorkItem(641639, "DevDiv")]
         public void Bug641639()
         {
@@ -6524,7 +6524,7 @@ public static int AT = (new { field = 2 }).field;
             Assert.Equal(1, comp.Assembly.Modules[2].GlobalNamespace.GetTypeMembers("<ModuleB01>f__AnonymousType0", 1).Length);
 
             CompileAndVerify(comp, expectedOutput: @"1 + 1 = 2
-2 = 2", emitOptions: TestEmitters.RefEmitBug);
+2 = 2", emitters: TestEmitters.RefEmitBug);
         }
 
         [Fact]
@@ -6754,7 +6754,7 @@ public class CF3<T>
                 }, TestOptions.ReleaseDll);
 
             // Exported types in .Net modules cause PEVerify to fail.
-            CompileAndVerify(compilation, emitOptions: TestEmitters.RefEmitBug, verify: false).VerifyDiagnostics();
+            CompileAndVerify(compilation, emitters: TestEmitters.RefEmitBug, verify: false).VerifyDiagnostics();
 
             compilation = CreateCompilationWithMscorlib("[assembly: System.Runtime.CompilerServices.TypeForwardedToAttribute(typeof(CF3<byte>))]",
                 new List<MetadataReference>()
@@ -6763,7 +6763,7 @@ public class CF3<T>
                     forwardedTypes1Ref
                 }, TestOptions.ReleaseDll);
 
-            CompileAndVerify(compilation, emitOptions: TestEmitters.RefEmitBug, verify: false).VerifyDiagnostics();
+            CompileAndVerify(compilation, emitters: TestEmitters.RefEmitBug, verify: false).VerifyDiagnostics();
 
             compilation = CreateCompilationWithMscorlib(modSource,
                 new List<MetadataReference>()
@@ -6838,7 +6838,7 @@ extern alias FT1;
                     forwardedTypes1Ref
                 }, TestOptions.ReleaseDll);
 
-            CompileAndVerify(compilation, emitOptions: TestEmitters.RefEmitBug, verify: false).VerifyDiagnostics();
+            CompileAndVerify(compilation, emitters: TestEmitters.RefEmitBug, verify: false).VerifyDiagnostics();
 
             compilation = CreateCompilationWithMscorlib("",
                 new List<MetadataReference>()
@@ -9437,7 +9437,7 @@ class set_P : A
         /// event accessor metadata name.
         /// </summary>
         [WorkItem(530385, "DevDiv")]
-        [Fact]
+        [ClrOnlyFact(ClrOnlyReason.Ilasm)]
         public void CS0542ERR_MemberNameSameAsType07()
         {
             var source1 =
@@ -10101,29 +10101,6 @@ Diagnostic(ErrorCode.ERR_InterfacesCantContainOperators, "+")
         }
 
         [Fact]
-        public void CS0568ERR_StructsCantContainDefaultConstructor01()
-        {
-            var text = @"namespace NS
-{
-    public struct S1
-    {
-        public S1() {}
-
-        struct S2<T>
-        {
-            S2() { }
-        }
-    }
-}
-";
-            var comp = DiagnosticsUtils.VerifyErrorsAndGetCompilationWithMscorlib(text,
-                new ErrorDescription { Code = (int)ErrorCode.ERR_ParameterlessStructCtorsMustBePublic, Line = 9, Column = 13 });
-
-            var ns = comp.SourceModule.GlobalNamespace.GetMembers("NS").Single() as NamespaceSymbol;
-            // TODO...
-        }
-
-        [Fact]
         public void CS0569ERR_CantOverrideBogusMethod()
         {
             var source1 =
@@ -10207,7 +10184,7 @@ Diagnostic(ErrorCode.ERR_InterfacesCantContainOperators, "+")
         }
 
         [Fact]
-        public void InstanceCtorInsTructPre60()
+        public void CS0568ERR_StructsCantContainDefaultConstructor01()
         {
             var text = @"namespace x
 {
@@ -10224,12 +10201,12 @@ Diagnostic(ErrorCode.ERR_InterfacesCantContainOperators, "+")
 ";
             var comp = CreateCompilationWithMscorlib(text, parseOptions: TestOptions.Regular.WithLanguageVersion(LanguageVersion.CSharp5));
             comp.VerifyDiagnostics(
-    // (5,16): error CS8026: Feature 'struct instance parameterless constructors' is not available in C# 5.  Please use language version 6 or greater.
+    // (5,16): error CS0568: Structs cannot contain explicit parameterless constructors
     //         public S1() {}
-    Diagnostic(ErrorCode.ERR_FeatureNotAvailableInVersion5, "S1").WithArguments("struct instance parameterless constructors", "6").WithLocation(5, 16),
-    // (9,13): error CS8075: Parameterless instance constructors in structs must be public
+    Diagnostic(ErrorCode.ERR_StructsCantContainDefaultConstructor, "S1").WithLocation(5, 16),
+    // (9,13): error CS0568: Structs cannot contain explicit parameterless constructors
     //             S2() { }
-    Diagnostic(ErrorCode.ERR_ParameterlessStructCtorsMustBePublic, "S2").WithLocation(9, 13)
+    Diagnostic(ErrorCode.ERR_StructsCantContainDefaultConstructor, "S2").WithLocation(9, 13)
    );
         }
 
@@ -11691,7 +11668,7 @@ class C5<T> where T : I
         }
 
         [WorkItem(546447, "DevDiv")]
-        [Fact]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         public void CS0682ERR_BogusExplicitImpl()
         {
             var source1 =
@@ -12551,21 +12528,26 @@ static class S
 }";
             CreateCompilationWithMscorlib(text).VerifyDiagnostics(
                 // (10,11): error CS0718: 'S': static types cannot be used as type arguments
+                //         I<S> i = null;
                 Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "S").WithArguments("S").WithLocation(10, 11),
                 // (11,11): error CS0718: 'S': static types cannot be used as type arguments
+                //         C<S> c = null;
                 Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "S").WithArguments("S").WithLocation(11, 11),
                 // (12,11): error CS0718: 'S': static types cannot be used as type arguments
+                //         C<S>.M();
                 Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "S").WithArguments("S").WithLocation(12, 11),
                 // (13,9): error CS0718: 'S': static types cannot be used as type arguments
-                Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "S").WithArguments("S").WithLocation(13, 11),
+                //         M<S>();
+                Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "M<S>").WithArguments("S").WithLocation(13, 9),
                 // (14,29): error CS0718: 'S': static types cannot be used as type arguments
+                //         object o = typeof(I<S>);
                 Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "S").WithArguments("S").WithLocation(14, 29),
                 // (10,14): warning CS0219: The variable 'i' is assigned but its value is never used
                 //         I<S> i = null;
-                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "i").WithArguments("i"),
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "i").WithArguments("i").WithLocation(10, 14),
                 // (11,14): warning CS0219: The variable 'c' is assigned but its value is never used
                 //         C<S> c = null;
-                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "c").WithArguments("c")
+                Diagnostic(ErrorCode.WRN_UnreferencedVarAssg, "c").WithArguments("c").WithLocation(11, 14)
                 );
         }
 
@@ -14826,7 +14808,7 @@ class C
                 );
         }
 
-        [Fact]
+        [Fact, WorkItem(1116455, "DevDiv")]
         public void CS1725ERR_FriendAssemblyBadArgs()
         {
             var text = @"
@@ -14846,6 +14828,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo(""Test, Version=1.1.1.*"")]              // error
 [assembly: InternalsVisibleTo(""Test, ProcessorArchitecture=MSIL"")]   // error
 [assembly: InternalsVisibleTo(""Test, CuLTure=EN"")]                   // error
+[assembly: InternalsVisibleTo(""Test, PublicKeyToken=null"")]          // ok
 ";
             // Tested against Dev12
             CreateCompilationWithMscorlib(text).VerifyDiagnostics(
@@ -16339,7 +16322,7 @@ partial struct A
         /// import - Lib:  class A     { class B {} } 
         ///      vs. curr: Namespace A { class B {} } - use B
         /// </summary>
-        [Fact]
+        [ClrOnlyFact(ClrOnlyReason.Unknown)]
         public void CS0435WRN_SameFullNameThisNsAgg01()
         {
             var text = @"namespace CSFields
@@ -17179,15 +17162,15 @@ public class B : A
 ";
             var comp = CreateCompilationWithMscorlib(source, options: TestOptions.DebugDll);
 
-            var verifier = CompileAndVerify(comp, verify: false, emitOptions: TestEmitters.RefEmitBug).
+            var verifier = CompileAndVerify(comp, verify: false, emitters: TestEmitters.RefEmitBug).
                            VerifyDiagnostics(
     // (8,17): warning CS0824: Constructor 'B.B()' is marked external
     //   public extern B();
     Diagnostic(ErrorCode.WRN_ExternCtorNoImplementation, "B").WithArguments("B.B()").WithLocation(8, 17)
                                 );
 
-            Assert.True(verifier.TestData.Methods.Keys.Any(n => n.StartsWith("A..ctor")));
-            Assert.False(verifier.TestData.Methods.Keys.Any(n => n.StartsWith("B..ctor"))); // Haven't tried to emit it
+            Assert.True(verifier.TestData.Methods.Keys.Any(n => n.StartsWith("A..ctor", StringComparison.Ordinal)));
+            Assert.False(verifier.TestData.Methods.Keys.Any(n => n.StartsWith("B..ctor", StringComparison.Ordinal))); // Haven't tried to emit it
         }
 
         [WorkItem(1084682, "DevDiv"), WorkItem(1036359, "DevDiv"), WorkItem(386, "CodePlex")]
@@ -19112,6 +19095,48 @@ public class Test
             var comp4 = CreateCompilationWithMscorlib(source3, new[] { comp2.EmitToImageReference() }, options: TestOptions.ReleaseDll);
 
             comp4.GetDiagnostics().Verify(expected);
+        }
+
+        [Fact, WorkItem(345, "https://github.com/dotnet/roslyn")]
+        public void InferredStaticTypeArgument()
+        {
+            var source =
+@"class Program
+{
+    static void Main(string[] args)
+    {
+        M(default(C));
+    }
+    public static void M<T>(T t)
+    {
+    }
+}
+
+static class C
+{
+}";
+            CreateCompilationWithMscorlib(source).VerifyDiagnostics(
+                // (5,9): error CS0718: 'C': static types cannot be used as type arguments
+                //         M(default(C));
+                Diagnostic(ErrorCode.ERR_GenericArgIsStaticClass, "M").WithArguments("C").WithLocation(5, 9)
+                );
+        }
+
+        [Fact, WorkItem(511, "https://github.com/dotnet/roslyn")]
+        public void StaticTypeArgumentOfDynamicInvocation()
+        {
+            var source =
+@"static class S {}
+class C
+{
+    static void M()
+    {
+        dynamic d1 = 123;
+        d1.N<S>(); // The dev11 compiler does not diagnose this
+    }
+    static void Main() {}
+}";
+            CreateCompilationWithMscorlib(source).VerifyDiagnostics();
         }
     }
 }

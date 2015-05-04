@@ -1,16 +1,8 @@
 ' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 Option Strict Off
-Imports Microsoft.CodeAnalysis.CodeGeneration
 Imports Microsoft.CodeAnalysis.Editor.UnitTests.Extensions
-Imports Microsoft.CodeAnalysis.Editor.UnitTests.Workspaces
-Imports Microsoft.CodeAnalysis.Text
-Imports Microsoft.CodeAnalysis.VisualBasic
 Imports Microsoft.CodeAnalysis.VisualBasic.CodeRefactorings.IntroduceVariable
-Imports Microsoft.CodeAnalysis.VisualBasic.Symbols
-Imports Microsoft.CodeAnalysis.VisualBasic.Syntax
-Imports Microsoft.VisualStudio.Utilities
-Imports Roslyn.Test.Utilities
 
 Namespace Microsoft.CodeAnalysis.Editor.VisualBasic.UnitTests.CodeRefactorings.IntroduceVariable
     Public Class IntroduceVariableTests
@@ -74,8 +66,8 @@ index:=3)
             TestExactActionSetOffered(
                 source,
                 expectedActionSet:={
-                    "Introduce local for 'CType(2.ToString(), T)'",
-                    "Introduce local for all occurrences of 'CType(2.ToString(), T)'"})
+                    String.Format(FeaturesResources.IntroduceLocalFor, "CType(2.ToString(), T)"),
+                    String.Format(FeaturesResources.IntroduceLocalForAllOccurrences, "CType(2.ToString(), T)")})
 
             ' Verifies "Introduce field ..." is missing
         End Sub
@@ -86,8 +78,8 @@ index:=3)
             TestExactActionSetOffered(
                 source,
                 expectedActionSet:={
-                    "Introduce local for 'x.ToString()'",
-                    "Introduce local for all occurrences of 'x.ToString()'"})
+                    String.Format(FeaturesResources.IntroduceLocalFor, "x.ToString()"),
+                    String.Format(FeaturesResources.IntroduceLocalForAllOccurrences, "x.ToString()")})
 
             ' Verifies "Introduce field ..." is missing
         End Sub
@@ -207,7 +199,7 @@ End Module
         <Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)>
         Public Sub TestNoLocalFromExpressionInField()
             Dim source = NewLines("Class Program \n Dim x = Foo([|2 + 2|]) \n End Class")
-            TestExactActionSetOffered(source, {"Introduce constant for '2 + 2'", "Introduce constant for all occurrences of '2 + 2'"})
+            TestExactActionSetOffered(source, {String.Format(FeaturesResources.IntroduceConstantFor, "2 + 2"), String.Format(FeaturesResources.IntroduceConstantForAllOccurrences, "2 + 2")})
         End Sub
 
         <Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)>
@@ -802,11 +794,10 @@ index:=1)
         End Sub
 
         <WorkItem(543529)>
+        <WorkItem(909152)>
         <Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)>
         Public Sub TestInStatementlessConstructorParameter()
-            Test(
-NewLines("Class C1 \n Sub New(Optional ByRef x As String = [|Nothing|]) \n End Sub \n End Class"),
-NewLines("Class C1 \n Private Const {|Rename:P|} As String = Nothing \n Sub New(Optional ByRef x As String = P) \n End Sub \n End Class"))
+            TestMissing(NewLines("Class C1 \n Sub New(Optional ByRef x As String = [|Nothing|]) \n End Sub \n End Class"))
         End Sub
 
         <WorkItem(543650)>
@@ -918,12 +909,10 @@ NewLines("Module M \n Sub Main() \n Dim x = <[|x|]/> \n End Sub \n End Module"))
         End Sub
 
         <WorkItem(545262)>
+        <WorkItem(909152)>
         <Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)>
         Public Sub TestInTernaryConditional()
-            Test(
-NewLines("Module Program \n Sub Main(args As String()) \n Dim p As Object = Nothing \n Dim Obj1 = If(New With {.a = True}.a, p, [|Nothing|]) \n End Sub \n End Module"),
-NewLines("Module Program \n Sub Main(args As String()) \n Dim p As Object = Nothing \n Const {|Rename:P1|} As Object = Nothing \n Dim Obj1 = If(New With {.a = True}.a, p, P1) \n End Sub \n End Module"),
-index:=2)
+            TestMissing(NewLines("Module Program \n Sub Main(args As String()) \n Dim p As Object = Nothing \n Dim Obj1 = If(New With {.a = True}.a, p, [|Nothing|]) \n End Sub \n End Module"))
         End Sub
 
         <WorkItem(545316)>
@@ -985,8 +974,8 @@ End Class
 </File>
 
             TestExactActionSetOffered(code.NormalizedValue,
-                                      {"Introduce local constant for '5'",
-                                       "Introduce local constant for all occurrences of '5'"})
+                                      {String.Format(FeaturesResources.IntroduceLocalConstantFor, "5"),
+                                       String.Format(FeaturesResources.IntroduceLocalConstantForAll, "5")})
 
             Test(code, expected, compareTokens:=False)
         End Sub
@@ -1008,8 +997,8 @@ End Class
 </Text>
 
             TestExactActionSetOffered(code.NormalizedValue,
-                                      {"Introduce local constant for '5'",
-                                       "Introduce local constant for all occurrences of '5'"})
+                                      {String.Format(FeaturesResources.IntroduceLocalConstantFor, "5"),
+                                       String.Format(FeaturesResources.IntroduceLocalConstantForAll, "5")})
         End Sub
 
         <WorkItem(545258)>
@@ -1043,8 +1032,8 @@ End Class
 </File>
 
             TestExactActionSetOffered(code.NormalizedValue,
-                                      {"Introduce local constant for '5'",
-                                       "Introduce local constant for all occurrences of '5'"})
+                                      {String.Format(FeaturesResources.IntroduceLocalConstantFor, "5"),
+                                       String.Format(FeaturesResources.IntroduceLocalConstantForAll, "5")})
 
             Test(code, expected, compareTokens:=False)
         End Sub
@@ -1407,6 +1396,24 @@ End Module
 </File>
 
             Test(code, expected, index:=3, compareTokens:=False)
+        End Sub
+
+        <WorkItem(909152)>
+        <Fact, Trait(Traits.Feature, Traits.Features.CodeActionsIntroduceVariable)>
+        Public Sub TestMissingOnNothingLiteral()
+            TestMissing(
+<File>
+Imports System
+Module Program
+    Sub Main(args As String())
+        Main([|Nothing|])
+        M(Nothing)
+    End Sub
+
+    Sub M(i As Integer)
+    End Sub
+End Module
+</File>)
         End Sub
 
         <WorkItem(1065661)>

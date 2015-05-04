@@ -17,10 +17,10 @@ Imports Microsoft.CodeAnalysis.VisualBasic.Completion.Providers
 
 Namespace Microsoft.CodeAnalysis.VisualBasic.Completion
     <ExportLanguageService(GetType(ICompletionService), LanguageNames.VisualBasic), [Shared]>
-    Friend Class VisualBasicCompletionService
+    Partial Friend Class VisualBasicCompletionService
         Inherits AbstractCompletionService
 
-        Private ReadOnly completionProviders As IEnumerable(Of ICompletionProvider) = New ICompletionProvider() {
+        Private ReadOnly _completionProviders As IEnumerable(Of ICompletionProvider) = New ICompletionProvider() {
             New KeywordCompletionProvider(),
             New SymbolCompletionProvider(),
             New ObjectInitializerCompletionProvider(),
@@ -37,13 +37,11 @@ Namespace Microsoft.CodeAnalysis.VisualBasic.Completion
         }.ToImmutableArray()
 
         Public Overrides Function GetDefaultCompletionProviders() As IEnumerable(Of ICompletionProvider)
-            Return completionProviders
+            Return _completionProviders
         End Function
 
         Public Overrides Function GetDefaultCompletionRules() As ICompletionRules
-            Dim baseRules = MyBase.GetDefaultCompletionRules()
-
-            Return New VisualBasicCompletionRules(baseRules)
+            Return New VisualBasicCompletionRules(Me)
         End Function
 
         ''' <summary>

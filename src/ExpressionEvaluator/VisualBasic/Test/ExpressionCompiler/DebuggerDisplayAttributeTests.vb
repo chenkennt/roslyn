@@ -1,4 +1,6 @@
-﻿Imports Microsoft.CodeAnalysis.CodeGen
+﻿' Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
+Imports Microsoft.CodeAnalysis.CodeGen
 Imports Microsoft.CodeAnalysis.ExpressionEvaluator
 Imports Microsoft.CodeAnalysis.Test.Utilities
 Imports Microsoft.VisualStudio.Debugger.Evaluation.ClrCompilation
@@ -28,7 +30,7 @@ Public Class Derived
     End Function
 End Class
 "
-            Dim comp = CreateCompilationWithMscorlib({source}, compOptions:=TestOptions.DebugDll)
+            Dim comp = CreateCompilationWithMscorlib({source}, options:=TestOptions.DebugDll)
             Dim runtime = CreateRuntimeInstance(comp, includeSymbols:=False)
             Dim context = CreateTypeContext(runtime, "Derived")
             Dim resultProperties As ResultProperties = Nothing

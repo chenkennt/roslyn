@@ -122,7 +122,7 @@ index: 2);
             TestAddDocument(
 @"class Program { void Main ( ) { [|Foo|] f ; } } ",
 @"internal class Foo { } ",
-expectedContainers: new string[0],
+expectedContainers: Array.Empty<string>(),
 expectedDocumentName: "Foo.cs");
         }
 
@@ -1501,7 +1501,7 @@ index: 1);
         {
             TestSmartTagText(
 @"class C : [|Foo|]",
-"Generate class for 'Foo' in 'Global Namespace' (in new file)");
+string.Format(FeaturesResources.GenerateForInNewFile, "class", "Foo", FeaturesResources.GlobalNamespace));
         }
 
         [WorkItem(543853)]
@@ -1511,7 +1511,7 @@ index: 1);
             TestAddDocument(
 @"class C : [|Foo|]",
 "internal class Foo { }",
-new string[] { },
+Array.Empty<string>(),
 "Foo.cs");
         }
 
@@ -1568,8 +1568,13 @@ class Program
 }
 ";
 
-            TestExactActionSetOffered(
-code, new[] { "Generate class for 'Foo' in 'Global Namespace' (in new file)", "Generate class for 'Foo' in 'Program'", "Generate new type..." });
+            TestExactActionSetOffered(code,
+                new[]
+                {
+                    string.Format(FeaturesResources.GenerateForInNewFile, "class", "Foo", FeaturesResources.GlobalNamespace),
+                    string.Format(FeaturesResources.GenerateForIn, "class", "Foo", "Program"),
+                    FeaturesResources.GenerateNewType
+                });
 
             Test(code,
 @"
@@ -1666,7 +1671,7 @@ namespace Namespace1.Namespace2
 
             TestAddDocument(code,
                 expected,
-                expectedContainers: new string[0],
+                expectedContainers: Array.Empty<string>(),
                 expectedDocumentName: "ClassB.cs",
                 compareTokens: false,
                 isLine: false);

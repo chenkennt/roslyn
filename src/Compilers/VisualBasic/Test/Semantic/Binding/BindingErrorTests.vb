@@ -14035,7 +14035,7 @@ End Class
 
         End Sub
 
-        Private Shared ReadOnly BadAttributeIl As String = <![CDATA[
+        Private Shared ReadOnly s_badAttributeIl As String = <![CDATA[
 .class public auto ansi beforefieldinit BaseAttribute
        extends [mscorlib]System.Attribute
 {
@@ -14114,7 +14114,7 @@ Class Test
 
 End Class
     ]]></file>
-    </compilation>, BadAttributeIl).VerifyDiagnostics(Diagnostic(ERRID.ERR_BadAttributeReadOnlyProperty1, "PROP").WithArguments("PROP"))
+    </compilation>, s_badAttributeIl).VerifyDiagnostics(Diagnostic(ERRID.ERR_BadAttributeReadOnlyProperty1, "PROP").WithArguments("PROP"))
 
         End Sub
 
@@ -24308,7 +24308,7 @@ BC30002: Type 'Settings' is not defined.
                        ~~~~~~~~
 ]]></expected>)
 
-            Dim tree = comp.SyntaxTrees.Where(Function(t) t.FilePath.EndsWith("a.vb")).Single
+            Dim tree = comp.SyntaxTrees.Where(Function(t) t.FilePath.EndsWith("a.vb", StringComparison.Ordinal)).Single
             Dim model = comp.GetSemanticModel(tree)
 
             AssertTheseDiagnostics(model.GetDiagnostics(),
@@ -24318,7 +24318,7 @@ BC30002: Type 'Settings' is not defined.
                      ~~~~~~~~
 ]]></expected>)
 
-            tree = comp.SyntaxTrees.Where(Function(t) t.FilePath.EndsWith("b.vb")).Single
+            tree = comp.SyntaxTrees.Where(Function(t) t.FilePath.EndsWith("b.vb", StringComparison.Ordinal)).Single
             model = comp.GetSemanticModel(tree)
             AssertTheseDiagnostics(model.GetDiagnostics(),
 <expected><![CDATA[

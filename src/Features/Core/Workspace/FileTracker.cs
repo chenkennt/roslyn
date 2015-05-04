@@ -61,7 +61,7 @@ namespace Microsoft.CodeAnalysis.Host
         {
             if (path == null)
             {
-                throw new ArgumentNullException("path");
+                throw new ArgumentNullException(nameof(path));
             }
 
             using (_guard.DisposableWait())
@@ -144,7 +144,7 @@ namespace Microsoft.CodeAnalysis.Host
                     // only start invoke task if one is not already running
                     if (_invokeTask == null)
                     {
-                        _invokeTask = Task.Factory.StartNew(() => { });
+                        _invokeTask = Task.Factory.StartNew(() => { }, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.Current);
                         _invokeTask.ContinueWithAfterDelay(() => TryInvokeActions(_actions), CancellationToken.None, 100, TaskContinuationOptions.None, TaskScheduler.Current);
                     }
                 }

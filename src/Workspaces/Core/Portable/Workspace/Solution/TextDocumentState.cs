@@ -140,9 +140,10 @@ namespace Microsoft.CodeAnalysis
         public bool TryGetTextVersion(out VersionStamp version)
         {
             // try fast path first
-            if (TryGetTextVersionFromRecoverableTextAndVersion(out version))
+            var versionable = this.textSource as ITextVersionable;
+            if (versionable != null)
             {
-                return true;
+                return versionable.TryGetTextVersion(out version);
             }
 
             TextAndVersion textAndVersion;
@@ -158,14 +159,6 @@ namespace Microsoft.CodeAnalysis
             }
         }
 
-        protected bool TryGetTextVersionFromRecoverableTextAndVersion(out VersionStamp version)
-        {
-            version = default(VersionStamp);
-
-            var recoverable = this.textSource as RecoverableTextAndVersion;
-            return recoverable != null && recoverable.TryGetTextVersion(out version);
-        }
-
         public async Task<SourceText> GetTextAsync(CancellationToken cancellationToken)
         {
             var textAndVersion = await this.textSource.GetValueAsync(cancellationToken).ConfigureAwait(false);
@@ -176,7 +169,7 @@ namespace Microsoft.CodeAnalysis
         {
             // try fast path first
             VersionStamp version;
-            if (TryGetTextVersionFromRecoverableTextAndVersion(out version))
+            if (TryGetTextVersion(out version))
             {
                 return version;
             }
@@ -197,7 +190,7 @@ namespace Microsoft.CodeAnalysis
         {
             if (newTextAndVersion == null)
             {
-                throw new ArgumentNullException("newTextAndVesion");
+                throw new ArgumentNullException(nameof(newTextAndVersion));
             }
 
             var newTextSource = mode == PreservationMode.PreserveIdentity
@@ -214,7 +207,7 @@ namespace Microsoft.CodeAnalysis
         {
             if (newText == null)
             {
-                throw new ArgumentNullException("newText");
+                throw new ArgumentNullException(nameof(newText));
             }
 
             var newVersion = this.GetNewerVersion();
@@ -228,7 +221,7 @@ namespace Microsoft.CodeAnalysis
         {
             if (loader == null)
             {
-                throw new ArgumentNullException("loader");
+                throw new ArgumentNullException(nameof(loader));
             }
 
             // don't blow up on non-text documents.

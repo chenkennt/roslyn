@@ -19,15 +19,21 @@ namespace Microsoft.CodeAnalysis.Diagnostics
         {
             _lazySemanticModel = lazySemanticModel;
         }
-        public ISymbol Symbol { get; private set; }
+        public ISymbol Symbol { get; }
 
         // At most one of these should be non-null.
         private Lazy<SemanticModel> _lazySemanticModel;
         private SemanticModel _semanticModel;
-        private WeakReference<SemanticModel> _weakModel = null;
+        private WeakReference<SemanticModel> _weakModel;
+
+        /// <summary>
+        /// Lockable object only instance is knowledgeable about.
+        /// </summary>
+        private readonly object _gate = new object();
+
         public SemanticModel SemanticModel(SyntaxReference reference)
         {
-            lock (this)
+            lock (_gate)
             {
                 var semanticModel = _semanticModel;
                 if (semanticModel == null && _lazySemanticModel != null)
@@ -35,9 +41,9 @@ namespace Microsoft.CodeAnalysis.Diagnostics
                     _semanticModel = semanticModel = _lazySemanticModel.Value;
                     _lazySemanticModel = null;
                 }
-                if (semanticModel == null && _weakModel != null)
+                if (semanticModel == null)
                 {
-                    _weakModel.TryGetTarget(out semanticModel);
+                    _weakModel?.TryGetTarget(out semanticModel);
                 }
                 if (semanticModel == null || semanticModel.SyntaxTree != reference.SyntaxTree)
                 {
@@ -50,7 +56,7 @@ namespace Microsoft.CodeAnalysis.Diagnostics
         }
         override public void FlushCache()
         {
-            lock (this)
+            lock (_gate)
             {
                 var semanticModel = _semanticModel;
                 _lazySemanticModel = null;

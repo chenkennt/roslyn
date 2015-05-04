@@ -132,6 +132,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
 
             _modules = moduleBuilder.ToImmutableAndFree();
+
+            if (!compilation.Options.CryptoPublicKey.IsEmpty)
+            {
+                _lazyStrongNameKeys = StrongNameKeys.Create(compilation.Options.CryptoPublicKey, MessageProvider.Instance);
+            }
         }
 
         public override string Name
@@ -535,20 +540,24 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
             DetectAttributeAndOptionConflicts(diagnostics);
 
-            if (IsDelaySign && !Identity.HasPublicKey)
+            if (IsDelaySigned && !Identity.HasPublicKey)
             {
                 diagnostics.Add(ErrorCode.WRN_DelaySignButNoKey, NoLocation.Singleton);
             }
 
-            // A container cannot contain just the public key. So if we have the public
-            // key, no keyPair, and no container, then the public key came from a file
-            // that contained only that. In that case we cannot sign.
+            // If the options and attributes applied on the compilation imply real signing,
+            // but we have no private key to sign it with report an error.
+            // Note that if public key is set and delay sign is off we do OSS signing, which doesn't require private key.
+            // Consider: should we allow to OSS sign if the key file only contains public key?
+
             if (DeclaringCompilation.Options.OutputKind != OutputKind.NetModule &&
-                Identity.HasPublicKey &&
-                !IsDelaySign &&
-                !StrongNameKeys.CanSign &&
+                DeclaringCompilation.Options.CryptoPublicKey.IsEmpty &&                
+                Identity.HasPublicKey&&
+                !IsDelaySigned &&
+                !StrongNameKeys.CanSign&&
                 StrongNameKeys.DiagnosticOpt == null)
             {
+                // Since the container always contains both keys, the problem is that the key file didn't contain private key.
                 diagnostics.Add(ErrorCode.ERR_SignButNoPrivateKey, NoLocation.Singleton, StrongNameKeys.KeyFilePath);
             }
 
@@ -771,7 +780,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
             }
         }
 
-        internal bool IsDelaySign
+        internal bool IsDelaySigned
         {
             get
             {
@@ -817,7 +826,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                         {
                             var diagnostics = DiagnosticBag.GetInstance();
                             ValidateAttributeSemantics(diagnostics);
-                            AddSemanticDiagnostics(diagnostics);
+                            AddDeclarationDiagnostics(diagnostics);
                             var thisThreadCompleted = _state.NotePartComplete(CompletionPart.FinishAttributeChecks);
                             Debug.Assert(thisThreadCompleted);
                             diagnostics.Free();
@@ -944,7 +953,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
             ReportNameCollisionDiagnosticsForAddedModules(this.GlobalNamespace, diagnostics);
 
-            _compilation.SemanticDiagnostics.AddRange(diagnostics);
+            _compilation.DeclarationDiagnostics.AddRange(diagnostics);
             diagnostics.Free();
         }
 
@@ -1340,7 +1349,7 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
                 if (Interlocked.CompareExchange(ref lazyNetModuleAttributesBag, netModuleAttributesBag, null) == null)
                 {
-                    this.AddSemanticDiagnostics(diagnostics);
+                    this.AddDeclarationDiagnostics(diagnostics);
                 }
 
                 diagnostics.Free();
@@ -1960,7 +1969,8 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
                 return;
             }
 
-            const AssemblyIdentityParts allowedParts = AssemblyIdentityParts.Name | AssemblyIdentityParts.PublicKey;
+            // Allow public key token due to compatibility reasons, but we are not going to use its value.
+            const AssemblyIdentityParts allowedParts = AssemblyIdentityParts.Name | AssemblyIdentityParts.PublicKey | AssemblyIdentityParts.PublicKeyToken; 
 
             if ((parts & ~allowedParts) != 0)
             {
@@ -2330,11 +2340,11 @@ namespace Microsoft.CodeAnalysis.CSharp.Symbols
 
                 foreach (FieldSymbol field in _unassignedFieldsMap.Keys) // Not mutating, so no snapshot required.
                 {
-                    bool isInternalAccessiblity;
-                    bool success = _unassignedFieldsMap.TryGetValue(field, out isInternalAccessiblity);
+                    bool isInternalAccessibility;
+                    bool success = _unassignedFieldsMap.TryGetValue(field, out isInternalAccessibility);
                     Debug.Assert(success, "Once CompletionPart.Module is set, no one should be modifying the map.");
 
-                    if (isInternalAccessiblity && internalsAreVisible)
+                    if (isInternalAccessibility && internalsAreVisible)
                     {
                         continue;
                     }

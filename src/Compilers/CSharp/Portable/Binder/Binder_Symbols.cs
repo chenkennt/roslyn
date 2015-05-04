@@ -556,7 +556,7 @@ namespace Microsoft.CodeAnalysis.CSharp
                 {
                     // CONSIDER:    Native compiler reports error CS1980 for each syntax node which binds to dynamic type, we do the same by reporting a diagnostic here.
                     //              However, this means we generate multiple duplicate diagnostics, when a single one would suffice.
-                    //              We may want to consider adding an "Unreported" flag to the DynamicTypeSymbol to supress duplicate CS1980.
+                    //              We may want to consider adding an "Unreported" flag to the DynamicTypeSymbol to suppress duplicate CS1980.
 
                     // CS1980: Cannot define a class or member that utilizes 'dynamic' because the compiler required type '{0}' cannot be found. Are you missing a reference?
                     var info = new CSDiagnosticInfo(ErrorCode.ERR_DynamicAttributeMissing, AttributeDescription.DynamicAttribute.FullName);
@@ -840,11 +840,6 @@ namespace Microsoft.CodeAnalysis.CSharp
             var arg = typeArgument.Kind() == SyntaxKind.OmittedTypeArgument
                 ? UnboundArgumentErrorTypeSymbol.Instance
                 : binder.BindType(typeArgument, diagnostics, basesBeingResolved);
-            if (arg.IsStatic)
-            {
-                // '{0}': static types cannot be used as type arguments
-                diagnostics.Add(ErrorCode.ERR_GenericArgIsStaticClass, typeArgument.Location, arg);
-            }
 
             return arg;
         }
@@ -1012,22 +1007,30 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </summary>
         internal Symbol GetSpecialTypeMember(SpecialMember member, DiagnosticBag diagnostics, CSharpSyntaxNode syntax)
         {
-            var memberSymbol = Compilation.GetSpecialTypeMember(member);
-            if ((object)memberSymbol != null)
+            Symbol memberSymbol;
+            return TryGetSpecialTypeMember(this.Compilation, member, syntax, diagnostics, out memberSymbol)
+                ? memberSymbol
+                : null;
+        }
+
+        internal static bool TryGetSpecialTypeMember<TSymbol>(CSharpCompilation compilation, SpecialMember specialMember, CSharpSyntaxNode syntax, DiagnosticBag diagnostics, out TSymbol symbol) 
+            where TSymbol : Symbol
+        {
+            symbol = (TSymbol)compilation.GetSpecialTypeMember(specialMember);
+            if ((object)symbol == null)
             {
-                var useSiteDiagnostic = memberSymbol.GetUseSiteDiagnosticForSymbolOrContainingType();
-                if (useSiteDiagnostic != null)
-                {
-                    Symbol.ReportUseSiteDiagnostic(useSiteDiagnostic, diagnostics, syntax.Location);
-                }
-            }
-            else
-            {
-                MemberDescriptor memberDescriptor = SpecialMembers.GetDescriptor(member);
-                diagnostics.Add(new CSDiagnosticInfo(ErrorCode.ERR_MissingPredefinedMember, memberDescriptor.DeclaringTypeMetadataName, memberDescriptor.Name), syntax.Location);
+                MemberDescriptor descriptor = SpecialMembers.GetDescriptor(specialMember);
+                diagnostics.Add(ErrorCode.ERR_MissingPredefinedMember, syntax.Location, descriptor.DeclaringTypeMetadataName, descriptor.Name);
+                return false;
             }
 
-            return memberSymbol;
+            var useSiteDiagnostic = symbol.GetUseSiteDiagnosticForSymbolOrContainingType();
+            if (useSiteDiagnostic != null)
+            {
+                Symbol.ReportUseSiteDiagnostic(useSiteDiagnostic, diagnostics, new SourceLocation(syntax));
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -1855,7 +1858,7 @@ namespace Microsoft.CodeAnalysis.CSharp
         /// </remarks>
         private AssemblySymbol GetForwardedToAssembly(string fullName, int arity, out bool encounteredCycle)
         {
-            Debug.Assert(arity == 0 || fullName.EndsWith("`" + arity));
+            Debug.Assert(arity == 0 || fullName.EndsWith("`" + arity, StringComparison.Ordinal));
 
             encounteredCycle = false;
 

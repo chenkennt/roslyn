@@ -2,6 +2,7 @@
 
 Imports System.ComponentModel.Composition.Hosting
 Imports System.ComponentModel.Composition.Primitives
+Imports System.Threading
 Imports Microsoft.CodeAnalysis
 Imports Microsoft.CodeAnalysis.Completion
 Imports Microsoft.CodeAnalysis.Completion.Providers
@@ -141,7 +142,7 @@ Namespace Microsoft.CodeAnalysis.Editor.UnitTests.IntelliSense
                 providers As TProvider(),
                 languageName As String) As IEnumerable(Of Lazy(Of TProvider, OrderableLanguageMetadata))
             If providers Is Nothing Then
-                Return {}
+                Return Array.Empty(Of Lazy(Of TProvider, OrderableLanguageMetadata))()
             End If
 
             Return providers.Select(Function(p) New Lazy(Of TProvider, OrderableLanguageMetadata)(
@@ -232,6 +233,11 @@ Namespace Microsoft.CodeAnalysis.Editor.UnitTests.IntelliSense
             MyBase.SendSave(Sub(a, n) handler.ExecuteCommand(a, n), Sub() Return)
         End Sub
 
+        Public Overloads Sub SendSelectAll()
+            Dim handler = DirectCast(CompletionCommandHandler, ICommandHandler(Of SelectAllCommandArgs))
+            MyBase.SendSelectAll(Sub(a, n) handler.ExecuteCommand(a, n), Sub() Return)
+        End Sub
+
         Public Sub AssertNoCompletionSession(Optional block As Boolean = True)
             If block Then
                 WaitForAsynchronousOperations()
@@ -257,7 +263,7 @@ Namespace Microsoft.CodeAnalysis.Editor.UnitTests.IntelliSense
                                        Function(i) i.DisplayText = v))
         End Function
 
-        Sub AssertSelectedCompletionItem(Optional displayText As String = Nothing,
+        Public Sub AssertSelectedCompletionItem(Optional displayText As String = Nothing,
                                Optional description As String = Nothing,
                                Optional isSoftSelected As Boolean? = Nothing,
                                Optional isHardSelected As Boolean? = Nothing,
@@ -378,7 +384,7 @@ Namespace Microsoft.CodeAnalysis.Editor.UnitTests.IntelliSense
                                        Function(i) GetDisplayText(i, CurrentSignatureHelpPresenterSession.SelectedParameter.Value) = v))
         End Function
 
-        Sub AssertSelectedSignatureHelpItem(Optional displayText As String = Nothing,
+        Public Sub AssertSelectedSignatureHelpItem(Optional displayText As String = Nothing,
                                Optional documentation As String = Nothing,
                                Optional selectedParameter As String = Nothing)
             WaitForAsynchronousOperations()
@@ -388,7 +394,7 @@ Namespace Microsoft.CodeAnalysis.Editor.UnitTests.IntelliSense
             End If
 
             If documentation IsNot Nothing Then
-                Assert.Equal(documentation, Me.CurrentSignatureHelpPresenterSession.SelectedItem.Documentation.GetFullText())
+                Assert.Equal(documentation, Me.CurrentSignatureHelpPresenterSession.SelectedItem.DocumentationFactory(CancellationToken.None).GetFullText())
             End If
 
             If selectedParameter IsNot Nothing Then

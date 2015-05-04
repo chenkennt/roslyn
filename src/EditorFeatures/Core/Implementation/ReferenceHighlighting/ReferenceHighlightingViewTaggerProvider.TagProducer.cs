@@ -56,6 +56,10 @@ namespace Microsoft.CodeAnalysis.Editor.Implementation.ReferenceHighlighting
                 }
 
                 var document = snapshotSpans.First(vt => vt.SnapshotSpan.Snapshot == position.Snapshot).Document;
+                if (document == null)
+                {
+                    return SpecializedTasks.EmptyEnumerable<ITagSpan<AbstractNavigatableReferenceHighlightingTag>>();
+                }
 
                 return ProduceTagsAsync(snapshotSpans, position, workspace, document, cancellationToken);
             }
@@ -118,9 +122,26 @@ namespace Microsoft.CodeAnalysis.Editor.Implementation.ReferenceHighlighting
 
                 foreach (var span in documentHighlights.HighlightSpans)
                 {
-                    var tag = span.IsDefinition ? (AbstractNavigatableReferenceHighlightingTag)DefinitionHighlightTag.Instance : ReferenceHighlightTag.Instance;
+                    var tag = GetTag(span);
                     tags.Add(new TagSpan<AbstractNavigatableReferenceHighlightingTag>(
                         textSnapshot.GetSpan(Span.FromBounds(span.TextSpan.Start, span.TextSpan.End)), tag));
+                }
+            }
+
+            private static AbstractNavigatableReferenceHighlightingTag GetTag(HighlightSpan span)
+            {
+                switch (span.Kind)
+                {
+                    case HighlightSpanKind.WrittenReference:
+                        return WrittenReferenceHighlightTag.Instance;
+
+                    case HighlightSpanKind.Definition:
+                        return DefinitionHighlightTag.Instance;
+
+                    case HighlightSpanKind.Reference:
+                    case HighlightSpanKind.None:
+                    default:
+                        return ReferenceHighlightTag.Instance;
                 }
             }
         }
