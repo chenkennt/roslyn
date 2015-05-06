@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.Default.props" Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.Default.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">14.0</VisualStudioVersion>
+    <ProjectGuid>{CEBE9092-AEEA-4F7F-A7CA-03A8BA405970}</ProjectGuid>
+    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <OutputPath>bin</OutputPath>
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <UseIISExpress>true</UseIISExpress>
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
+    <RootNamespace>Documentation</RootNamespace>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <DocToolExtensionsPath>$(MSBuildProgramFiles32)\Microsoft Docascode\BuildMeta</DocToolExtensionsPath>
+    <UseGlobalApplicationHostFile />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <FilesToIncludeForPublish>AllFilesInProjectFolder</FilesToIncludeForPublish>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="css\docascode.css" />
+    <Content Include="favicon.ico" />
+    <Content Include="index.html" />
+    <Content Include="js\docascode.js" />
+    <Content Include="web.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="template\error404.html" />
+    <Content Include="template\navbar.html" />
+    <Content Include="template\toc.html" />
+    <Content Include="template\yamlContent.html" />
+    <Content Include="toc.yml" />
+    <Content Include="Formatter.md" />
+    <Content Include="Home.md" />
+    <None Include="logo.png" />
+    <None Include=".gitignore" />
+    <None Include=".nojekyll" />
+    <None Include="web.Release.config">
+      <DependentUpon>web.config</DependentUpon>
+    </None>
+    <Content Include="wiki\Building-Testing-and-Debugging.md" />
+    <Content Include="wiki\Contributing-Code.md" />
+    <Content Include="wiki\FAQ.md" />
+    <Content Include="wiki\Getting-Started-on-Visual-Studio-2015-CTP-5.md" />
+    <Content Include="wiki\Getting-Started-on-Visual-Studio-2015-CTP-6.md" />
+    <Content Include="wiki\Getting-Started-on-Visual-Studio-2015-Preview.md" />
+    <Content Include="wiki\images\alex-api-layers.png" />
+    <Content Include="wiki\images\compiler-pipeline-api.png" />
+    <Content Include="wiki\images\compiler-pipeline-lang-svc.png" />
+    <Content Include="wiki\images\compiler-pipeline.png" />
+    <Content Include="wiki\images\fig1.png" />
+    <Content Include="wiki\images\fig10.png" />
+    <Content Include="wiki\images\fig11.png" />
+    <Content Include="wiki\images\fig12.png" />
+    <Content Include="wiki\images\fig13.png" />
+    <Content Include="wiki\images\fig14.png" />
+    <Content Include="wiki\images\fig15.png" />
+    <Content Include="wiki\images\fig16.png" />
+    <Content Include="wiki\images\fig17.png" />
+    <Content Include="wiki\images\fig18.png" />
+    <Content Include="wiki\images\fig19.png" />
+    <Content Include="wiki\images\fig2.png" />
+    <Content Include="wiki\images\fig20.png" />
+    <Content Include="wiki\images\fig3.png" />
+    <Content Include="wiki\images\fig4.png" />
+    <Content Include="wiki\images\fig5.png" />
+    <Content Include="wiki\images\fig6.png" />
+    <Content Include="wiki\images\fig7.png" />
+    <Content Include="wiki\images\fig8.png" />
+    <Content Include="wiki\images\fig9.png" />
+    <Content Include="wiki\images\workspace-obj-relations.png" />
+    <Content Include="wiki\Languages-features-in-CSharp-6-and-VB-14.md" />
+    <Content Include="wiki\Roadmap.md" />
+    <Content Include="wiki\Roslyn-Overview.md" />
+    <Content Include="wiki\Samples-and-Walkthroughs.md" />
+    <Content Include="wiki\Syntax-Visualizer.md" />
+    <Content Include="wiki\toc.yml" />
+    <Content Include="wiki\VS-2015-CTP-5-API-Changes.md" />
+    <Content Include="wiki\VS-2015-CTP-6-API-Changes.md" />
+    <Content Include="wiki\Walkthroughs.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Workspaces\Core\Portable\Workspaces.csproj">
+      <Project>{5f8d2414-064a-4b3a-9b42-8e2a04246be5}</Project>
+      <Name>Workspaces</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\WebApplications\Microsoft.WebApplication.targets" Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\WebApplications\Microsoft.WebApplication.targets')" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>True</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>9276</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost:9276/</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <Import Project="$(DocToolExtensionsPath)\Targets\Microsoft.DocProject.targets" Condition="Exists('$(DocToolExtensionsPath)\Targets\Microsoft.DocProject.targets')" />
+  <Target Name="WarnWhenTargetNotExists" AfterTargets="AfterBuild">
+    <Message Text="Unable to locate '$(DocToolExtensionsPath)\Targets\Microsoft.DocProject.targets'!" Condition="!Exists('$(DocToolExtensionsPath)\Targets\Microsoft.DocProject.targets')" />
+  </Target>
+</Project>
